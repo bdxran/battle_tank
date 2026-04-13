@@ -5,7 +5,7 @@
 > Objectif : Un tank peut se connecter, bouger, tirer, et être tué.
 
 - [x] Setup projet Godot 4.x + C# (.csproj, solution, NuGet)
-- [ ] Serveur ENet basique (connexion/déconnexion joueurs via MultiplayerAPI)
+- [x] Serveur ENet basique (connexion/déconnexion joueurs via MultiplayerAPI)
 - [x] Protocole de messages (MessagePack, types partagés GameLogic/Network)
 - [x] Entité Tank (position, direction, vie, vitesse)
 - [ ] Boucle de jeu serveur (game loop à tick fixe 20 TPS)

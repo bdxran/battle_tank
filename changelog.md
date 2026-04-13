@@ -15,8 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GameLogic/Shared/Types.cs` — types partagés : GamePhase, TankSnapshot, BulletSnapshot
 - `GameLogic/Shared/Constants.cs` — constantes tank et balle (vitesse, santé max, dégâts)
 - `Tests/Entities/TankEntityTests.cs` — 12 tests unitaires NUnit sur TankEntity
+- `Godot/Network/ServerNetworkManager.cs` — serveur ENet basique : démarrage, connexion/déconnexion joueurs, réception PlayerInput, broadcast GameState
+- `Godot/Network/ClientNetworkManager.cs` — client ENet basique : connexion au serveur, envoi PlayerInput, réception GameStateFull/Delta
 
 ### Changed
+
+- `GameLogic/Shared/Constants.cs` — passage de `internal` à `public` (accès depuis Godot/)
 
 ### Fixed
 

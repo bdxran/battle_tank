@@ -91,12 +91,102 @@ public record NetworkMessage(MessageType Type, byte[] Payload);
 
 ---
 
+## Structures complètes
+
+### `TankSnapshot` (dans `Shared/Types.cs`)
+
+```csharp
+[MessagePackObject]
+public record TankSnapshot(
+    [property: Key(0)] int Id,
+    [property: Key(1)] float X,
+    [property: Key(2)] float Y,
+    [property: Key(3)] float Rotation,  // degrés, 0 = vers le haut
+    [property: Key(4)] int Health
+);
+```
+
+### `BulletSnapshot` (dans `Shared/Types.cs`)
+
+```csharp
+[MessagePackObject]
+public record BulletSnapshot(
+    [property: Key(0)] int Id,
+    [property: Key(1)] float X,
+    [property: Key(2)] float Y,
+    [property: Key(3)] float DirectionX,
+    [property: Key(4)] float DirectionY,
+    [property: Key(5)] int OwnerId
+);
+```
+
+### `GameStateFull`
+
+```csharp
+[MessagePackObject]
+public record GameStateFull(
+    [property: Key(0)] uint SequenceNumber,
+    [property: Key(1)] TankSnapshot[] Tanks,
+    [property: Key(2)] BulletSnapshot[] Bullets,
+    [property: Key(3)] GamePhase Phase
+);
+```
+
+### `GameStateDelta`
+
+```csharp
+[MessagePackObject]
+public record GameStateDelta(
+    [property: Key(0)] uint SequenceNumber,
+    [property: Key(1)] uint LastAckedInput,
+    [property: Key(2)] TankSnapshot[] Tanks,
+    [property: Key(3)] BulletSnapshot[] Bullets
+);
+```
+
+### `PlayerJoinedMessage`
+
+```csharp
+[MessagePackObject]
+public record PlayerJoinedMessage(
+    [property: Key(0)] int PlayerId,
+    [property: Key(1)] string PlayerName
+);
+```
+
+### `PlayerEliminatedMessage`
+
+```csharp
+[MessagePackObject]
+public record PlayerEliminatedMessage(
+    [property: Key(0)] int EliminatedPlayerId,
+    [property: Key(1)] int KillerPlayerId
+);
+```
+
+### `GameOverMessage`
+
+```csharp
+[MessagePackObject]
+public record GameOverMessage(
+    [property: Key(0)] int WinnerPlayerId
+);
+```
+
+### `ZoneUpdateMessage`
+
+```csharp
+[MessagePackObject]
+public record ZoneUpdateMessage(
+    [property: Key(0)] float CenterX,
+    [property: Key(1)] float CenterY,
+    [property: Key(2)] float Radius,
+    [property: Key(3)] float DamagePerSecond
+);
+```
+
 ## Évolutions prévues
 
 | Message | Priorité | Phase |
 |---------|----------|-------|
-| `GameStateFull` (structure détaillée) | Haute | MVP |
-| `GameStateDelta` (structure détaillée) | Haute | MVP |
-| `TankSnapshot` | Haute | MVP |
-| `BulletSnapshot` | Moyenne | MVP |
-| `ZoneSnapshot` | Moyenne | MVP |
+| `ZoneSnapshot` dans `GameStateFull` | Moyenne | MVP |

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GameLogic/Network/Protocol.cs` — types de messages réseau (MessageType, InputFlags, PlayerInput, GameStateFull, GameStateDelta, PlayerJoined/Eliminated/Over, ZoneUpdate)
+- `GameLogic/Network/GameStateSerializer.cs` — sérialisation/désérialisation MessagePack générique
+- `GameLogic/Entities/TankEntity.cs` — entité tank (position, rotation, santé, mouvement, dégâts, snapshot)
+- `GameLogic/Shared/Types.cs` — types partagés : GamePhase, TankSnapshot, BulletSnapshot
+- `GameLogic/Shared/Constants.cs` — constantes tank et balle (vitesse, santé max, dégâts)
+- `Tests/Entities/TankEntityTests.cs` — 12 tests unitaires NUnit sur TankEntity
+
 ### Changed
 
 ### Fixed

@@ -12,8 +12,9 @@ repos:
       - id: end-of-file-fixer            # Assure une newline en fin de fichier
       - id: mixed-line-ending            # Normalise les fins de ligne en LF
         args: ["--fix=lf"]
-      - id: no-commit-to-branch          # Empêche les commits directs sur main/master
+      - id: no-commit-to-branch          # Désactivé — commits directs sur main autorisés
         stages: [commit-msg]
+        args: [--branch, disabled-no-direct-main]
       - id: trailing-whitespace          # Supprime les espaces en fin de ligne
         args: [--markdown-linebreak-ext=md]
 

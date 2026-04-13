@@ -10,6 +10,7 @@ public partial class ClientNetworkManager : Node
     private ILogger<ClientNetworkManager> _logger = null!;
 
     private ENetMultiplayerPeer _peer = null!;
+    private bool _connected;
 
     public event Action? ConnectedToServer;
     public event Action? DisconnectedFromServer;
@@ -54,14 +55,18 @@ public partial class ClientNetworkManager : Node
         RpcId(1, MethodName.ReceiveMessage, payload);
     }
 
+    public bool IsConnected() => _connected;
+
     private void OnConnectedToServer()
     {
+        _connected = true;
         _logger.LogInformation("Connected to server as peer {PeerId}", Multiplayer.GetUniqueId());
         ConnectedToServer?.Invoke();
     }
 
     private void OnServerDisconnected()
     {
+        _connected = false;
         _logger.LogWarning("Disconnected from server");
         DisconnectedFromServer?.Invoke();
     }

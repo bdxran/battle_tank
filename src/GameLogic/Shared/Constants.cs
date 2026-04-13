@@ -14,4 +14,11 @@ public static class Constants
 
     public const int BulletDamage = 25;
     public const float BulletSpeed = 300f; // pixels/second
+    public const float BulletMaxRange = 600f; // pixels
+
+    public const float TankRadius = 20f;  // pixels, for collision
+    public const float BulletRadius = 5f; // pixels, for collision
+
+    public const float MapWidth = 1000f;
+    public const float MapHeight = 1000f;
 }

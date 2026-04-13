@@ -12,6 +12,13 @@ public class GameRoomTests
 {
     private GameRoom CreateRoom() => new(NullLogger<GameRoom>.Instance);
 
+    private static void AdvanceThroughLobby(GameRoom room)
+    {
+        float dt = 1f / Constants.TickRate;
+        for (int i = 0; i <= Constants.LobbyCountdownTicks; i++)
+            room.Tick(dt);
+    }
+
     [Test]
     public void AddPlayer_Success()
     {
@@ -38,6 +45,7 @@ public class GameRoomTests
         var room = CreateRoom();
         room.AddPlayer(1);
         room.AddPlayer(2);
+        AdvanceThroughLobby(room);
         Assert.That(room.Phase, Is.EqualTo(GamePhase.InProgress));
 
         var result = room.AddPlayer(3);
@@ -45,13 +53,23 @@ public class GameRoomTests
     }
 
     [Test]
-    public void TwoPlayers_TransitionToInProgress()
+    public void TwoPlayers_TransitionToLobby()
     {
         var room = CreateRoom();
         room.AddPlayer(1);
         Assert.That(room.Phase, Is.EqualTo(GamePhase.WaitingForPlayers));
 
         room.AddPlayer(2);
+        Assert.That(room.Phase, Is.EqualTo(GamePhase.Lobby));
+    }
+
+    [Test]
+    public void TwoPlayers_AfterLobbyCountdown_TransitionToInProgress()
+    {
+        var room = CreateRoom();
+        room.AddPlayer(1);
+        room.AddPlayer(2);
+        AdvanceThroughLobby(room);
         Assert.That(room.Phase, Is.EqualTo(GamePhase.InProgress));
     }
 
@@ -61,6 +79,7 @@ public class GameRoomTests
         var room = CreateRoom();
         room.AddPlayer(1);
         room.AddPlayer(2);
+        AdvanceThroughLobby(room);
 
         room.RemovePlayer(2);
         Assert.That(room.Phase, Is.EqualTo(GamePhase.GameOver));
@@ -73,6 +92,7 @@ public class GameRoomTests
         var room = CreateRoom();
         var result = room.AddPlayer(1);
         room.AddPlayer(2);
+        AdvanceThroughLobby(room);
 
         var initialPos = new Vector2(result.Value.Position.X, result.Value.Position.Y);
         var input = new PlayerInput(1, InputFlags.MoveForward, 1);
@@ -101,6 +121,7 @@ public class GameRoomTests
         var room = CreateRoom();
         room.AddPlayer(1);
         room.AddPlayer(2);
+        AdvanceThroughLobby(room);
         Assert.That(room.Phase, Is.EqualTo(GamePhase.InProgress));
 
         room.Reset();

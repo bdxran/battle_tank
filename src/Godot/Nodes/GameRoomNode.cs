@@ -106,7 +106,7 @@ public partial class GameRoomNode : Node
 
     private void BroadcastGameOver()
     {
-        var msg = new GameOverMessage(_room.WinnerId);
+        var msg = new GameOverMessage(_room.WinnerId, _room.GetLeaderboard());
         _network.Broadcast(new NetworkMessage(
             MessageType.GameOver,
             GameStateSerializer.Serialize(msg)));

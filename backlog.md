@@ -25,38 +25,38 @@
 - [x] Écran de fin de partie (victoire / défaite / classement)
 - [x] Minimap (joueurs visibles, zone safe)
 - [x] Obstacles et murs sur la carte (couverture tactique)
-- [ ] Powerups (munitions, bouclier, vitesse)
-- [ ] Score / leaderboard en fin de partie
-- [ ] Lobby / salle d'attente avec compte à rebours avant début de partie
-- [ ] Pseudo joueur (saisi ou aléatoire)
+- [x] Powerups (munitions, bouclier, vitesse)
+- [x] Score / leaderboard en fin de partie
+- [x] Lobby / salle d'attente avec compte à rebours avant début de partie
+- [x] Pseudo joueur (saisi ou aléatoire)
 
 ## Phase 3 — Modes de jeu additionnels
 
 > Objectif : Varier les plaisirs entre amis.
 
 **Infrastructure commune :**
-- [ ] Sélecteur de mode en lobby (BR Solo, Teams, Deathmatch, Capture de zone)
-- [ ] Système de règles modulaire (`IBattleRules`)
-- [ ] Respawn configurable par mode (délai + position)
+- [x] Sélecteur de mode en lobby (BR Solo, Teams, Deathmatch, Capture de zone)
+- [x] Système de règles modulaire (`IBattleRules`)
+- [x] Respawn configurable par mode (délai + position)
 
 **Teams (2v2, 4v4) :**
-- [ ] Équipes avec couleur différente
-- [ ] Friendly fire désactivé (configurable)
-- [ ] Victoire par équipe (dernière équipe en vie)
-- [ ] Spawn groupé par équipe
+- [x] Équipes avec couleur différente
+- [x] Friendly fire désactivé (configurable)
+- [x] Victoire par équipe (dernière équipe en vie)
+- [x] Spawn groupé par équipe
 
 **Deathmatch chrono :**
-- [ ] Timer de partie (durée configurable)
-- [ ] Respawn activé (délai court)
-- [ ] Score = nombre de kills
-- [ ] Leaderboard live en HUD
-- [ ] Victoire : plus de kills au chrono
+- [x] Timer de partie (durée configurable)
+- [x] Respawn activé (délai court)
+- [x] Score = nombre de kills
+- [x] Leaderboard live en HUD
+- [x] Victoire : plus de kills au chrono
 
 **Capture de zone :**
-- [ ] Zones de contrôle sur la carte (3 zones)
-- [ ] Capture progressive (tank dans la zone = accumule des points)
-- [ ] Affichage des zones contrôlées (minimap + carte)
-- [ ] Victoire : premier à X points ou plus de points au timer
+- [x] Zones de contrôle sur la carte (3 zones)
+- [x] Capture progressive (tank dans la zone = accumule des points)
+- [ ] Affichage des zones contrôlées (minimap + carte) ← Godot/UI, hors périmètre GameLogic
+- [x] Victoire : premier à X points ou plus de points au timer
 
 ## Phase 4 — Comptes & Progression
 

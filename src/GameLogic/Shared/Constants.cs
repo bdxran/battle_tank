@@ -26,4 +26,21 @@ public static class Constants
     public const float ZoneMinRadius = 50f;
     public const float ZoneShrinkAmount = 80f;     // pixels per shrink step
     public const float ZoneDamagePerSecond = 10f;
+
+    public const int LobbyCountdownTicks = 60;     // 3s at 20 TPS
+
+    public const uint PowerupSpawnIntervalTicks = 200; // 10s at 20 TPS
+    public const uint SpeedBoostDurationTicks = 100;   // 5s at 20 TPS
+    public const int ShieldHealAmount = 25;
+    public const float PowerupRadius = 15f;
+
+    // Deathmatch
+    public const int DeathmatchDurationTicks = 3600;   // 3 min at 20 TPS
+    public const int DeathmatchRespawnDelayTicks = 60; // 3s at 20 TPS
+
+    // Capture Zone
+    public const int CaptureZoneScoreToWin = 100;
+    public const int CaptureZoneDurationTicks = 4800;  // 4 min at 20 TPS
+    public const float ControlPointRadius = 80f;
+    public const float CaptureRatePerSecond = 10f;     // points/s per controlled zone
 }

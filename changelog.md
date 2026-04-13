@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GameLogic/Shared/Types.cs` — `GameMode` enum (BattleRoyale/Teams/Deathmatch/CaptureZone), `ControlPointSnapshot`, `PlayerInfo.TeamId`
+- `GameLogic/Shared/Constants.cs` — constantes deathmatch (`DeathmatchDurationTicks`, `DeathmatchRespawnDelayTicks`), capture de zone (`CaptureZoneScoreToWin`, `CaptureZoneDurationTicks`, `ControlPointRadius`, `CaptureRatePerSecond`)
+- `GameLogic/Entities/TankEntity.cs` — `TeamId`, `IsEliminated`, `Respawn(Vector2 position)` (réinitialise santé, position, vitesse)
+- `GameLogic/Entities/ControlPoint.cs` — zone de capture : progression, équipe dominante, snapshot
+- `GameLogic/Rules/IBattleRules.cs` — interface de règles modulaire : `Mode`, `IsFriendlyFireEnabled`, `UseShrinkingZone`, `UsesPowerups`, `Initialize`, `GetSpawnPoint`, `OnPlayerAdded`, `OnElimination`, `OnTick`, `CheckWinCondition`, `GetLeaderboard`
+- `GameLogic/Rules/GameRoomState.cs` — contexte partagé passé aux règles (tanks, kills, équipes, scores, respawn queue, control points)
+- `GameLogic/Rules/BattleRoyaleRules.cs` — règles BR : dernier survivant, zone rétrécissante, powerups
+- `GameLogic/Rules/TeamsRules.cs` — règles équipes : attribution round-robin, no friendly fire, victoire par équipe, spawn groupé
+- `GameLogic/Rules/DeathmatchRules.cs` — règles deathmatch : timer 3 min, respawn après 3s, victoire par kills
+- `GameLogic/Rules/CaptureZoneRules.cs` — règles capture de zone : 3 points de contrôle, score cumulatif par équipe, victoire à 100 pts ou au timer
+- `GameLogic/Rules/GameRoom.cs` — refactorisé : délégation à `IBattleRules`, support du respawn, friendly fire check, `WinnerTeamId`, `TeamScores`, nouveau constructeur `GameRoom(logger, rules)`
+- `GameLogic/Network/Protocol.cs` — `GameMode Mode` et `ControlPointSnapshot[]? ControlPoints` dans `GameStateFull`/`GameStateDelta`, `WinnerTeamId` dans `GameOverMessage`
+- `Tests/Rules/TeamsRulesTests.cs` — 7 tests : attribution équipes, friendly fire, victoire par équipe, leaderboard groupé
+- `Tests/Rules/DeathmatchRulesTests.cs` — 6 tests : timer, victoire par kills, respawn, partie continue après mort
+- `Tests/Rules/CaptureZoneRulesTests.cs` — 7 tests : 3 control points, score cumulatif, timer, victoire, reset
+- `Tests/Entities/ControlPointTests.cs` — 7 tests : progression, contestation, capture complète, snapshot, tank mort ignoré
+
+- `GameLogic/Shared/Types.cs` — `GamePhase.Lobby`, `PowerupType` (ExtraAmmo/Shield/SpeedBoost), `PowerupSnapshot`, `PlayerInfo` (id, nickname, kills)
+- `GameLogic/Shared/Constants.cs` — `LobbyCountdownTicks`, `PowerupSpawnIntervalTicks`, `SpeedBoostDurationTicks`, `ShieldHealAmount`, `PowerupRadius`
+- `GameLogic/Entities/PowerupEntity.cs` — entité powerup (position, type, pickup state, snapshot)
+- `GameLogic/Entities/TankEntity.cs` — méthodes `Heal()`, `ApplySpeedBoost()`, `TickSpeedBoost()`, propriété `SpeedMultiplier`
+- `GameLogic/Rules/GameRoom.cs` — phase Lobby avec compte à rebours (3s), pseudo joueur, suivi des kills par joueur, spawn de powerups toutes les 10s, application des effets powerup
+- `GameLogic/Network/Protocol.cs` — `CountdownMessage`, `MessageType.Countdown`, `PlayerInfo[]` dans `GameStateFull`, `PowerupSnapshot[]` dans `GameStateFull`/`GameStateDelta`, leaderboard dans `GameOverMessage`
+- `Tests/Rules/LobbyCountdownTests.cs` — 6 tests : transition Lobby, compte à rebours, accès pendant Lobby
+- `Tests/Rules/ScoreTests.cs` — 6 tests : suivi kills, leaderboard trié, pseudos
+- `Tests/Entities/PowerupEntityTests.cs` — 7 tests : pickup, snapshot, Heal, SpeedBoost
+
 - `GameLogic/Network/Protocol.cs` — types de messages réseau (MessageType, InputFlags, PlayerInput, GameStateFull, GameStateDelta, PlayerJoined/Eliminated/Over, ZoneUpdate)
 - `GameLogic/Network/GameStateSerializer.cs` — sérialisation/désérialisation MessagePack générique
 - `GameLogic/Entities/TankEntity.cs` — entité tank (position, rotation, santé, mouvement, dégâts, snapshot)

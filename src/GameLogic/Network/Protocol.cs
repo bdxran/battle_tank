@@ -12,6 +12,7 @@ public enum MessageType : byte
     PlayerJoined = 0x20,
     PlayerEliminated = 0x21,
     GameOver = 0x22,
+    Countdown = 0x23,
     ZoneUpdate = 0x30,
     Error = 0xFF,
 }
@@ -42,7 +43,12 @@ public record GameStateFull(
     [property: Key(1)] TankSnapshot[] Tanks,
     [property: Key(2)] BulletSnapshot[] Bullets,
     [property: Key(3)] GamePhase Phase,
-    [property: Key(4)] ZoneSnapshot Zone
+    [property: Key(4)] ZoneSnapshot Zone,
+    [property: Key(5)] PlayerInfo[] Players,
+    [property: Key(6)] int CountdownSecondsRemaining,
+    [property: Key(7)] PowerupSnapshot[] Powerups,
+    [property: Key(8)] GameMode Mode = GameMode.BattleRoyale,
+    [property: Key(9)] ControlPointSnapshot[]? ControlPoints = null
 );
 
 [MessagePackObject]
@@ -51,7 +57,9 @@ public record GameStateDelta(
     [property: Key(1)] uint LastAckedInput,
     [property: Key(2)] TankSnapshot[] Tanks,
     [property: Key(3)] BulletSnapshot[] Bullets,
-    [property: Key(4)] ZoneSnapshot Zone
+    [property: Key(4)] ZoneSnapshot Zone,
+    [property: Key(5)] PowerupSnapshot[] Powerups,
+    [property: Key(6)] ControlPointSnapshot[]? ControlPoints = null
 );
 
 [MessagePackObject]
@@ -68,7 +76,14 @@ public record PlayerEliminatedMessage(
 
 [MessagePackObject]
 public record GameOverMessage(
-    [property: Key(0)] int WinnerPlayerId
+    [property: Key(0)] int WinnerPlayerId,
+    [property: Key(1)] PlayerInfo[] Leaderboard,
+    [property: Key(2)] int WinnerTeamId = -1
+);
+
+[MessagePackObject]
+public record CountdownMessage(
+    [property: Key(0)] int SecondsRemaining
 );
 
 [MessagePackObject]

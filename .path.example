@@ -1,0 +1,18 @@
+# .path.example — Template des chemins de référence
+#
+# Copier ce fichier en .path et adapter les chemins à ton poste.
+# .path est dans .gitignore — chaque développeur a sa propre version.
+#
+# Utilisation dans un prompt : mentionner le nom (ex: "comme dans template_project")
+# → Claude résoudra le chemin automatiquement sans que tu aies à le donner.
+#
+# Format : nom=chemin_absolu
+
+# Workspace racine
+workspace=/home/randy/workspace
+
+# Template de référence
+template_project=/home/randy/workspace/poc/template_project
+
+# Ce projet
+battle-tank=/home/randy/perso/battle_tank

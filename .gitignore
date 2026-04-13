@@ -1,0 +1,41 @@
+# Environnement
+.env
+.env.local
+.env.*.local
+
+# Chemins locaux (spécifiques à chaque poste)
+.path
+
+# Godot
+.godot/
+*.import
+*.uid
+export_presets.cfg
+
+# C# / .NET
+obj/
+bin/
+*.user
+*.suo
+.vs/
+*.csproj.user
+
+# Logs
+*.log
+
+# Éditeurs
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Coverage
+coverage/
+*.lcov

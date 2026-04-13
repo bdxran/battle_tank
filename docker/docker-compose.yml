@@ -1,0 +1,33 @@
+# docker-compose.yml — battle-tank
+#
+# Lance le serveur de jeu Godot headless.
+# Usage : just run-docker  (démarrer)
+#         just stop-docker (arrêter)
+
+name: battle-tank
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Serveur de jeu (Godot headless)
+  # ---------------------------------------------------------------------------
+  server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: battle-tank-server
+    ports:
+      - "${SERVER_PORT:-4242}:4242/udp"
+    env_file:
+      - ../.env
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-4242}
+      - TICK_RATE=${TICK_RATE:-20}
+      - MAX_PLAYERS_PER_ROOM=${MAX_PLAYERS_PER_ROOM:-8}
+    networks:
+      - game-net
+    restart: unless-stopped
+
+networks:
+  game-net:
+    driver: bridge

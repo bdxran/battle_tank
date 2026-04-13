@@ -1,0 +1,48 @@
+default_install_hook_types: [pre-commit, commit-msg]
+repos:
+  # Hooks génériques pour tout projet
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files      # Empêche les fichiers > 500kB
+      - id: check-merge-conflict         # Détecte les conflits non résolus
+      - id: check-toml                   # Valide la syntaxe TOML
+      - id: check-yaml                   # Valide la syntaxe YAML
+      - id: detect-private-key           # Détecte les clés privées accidentelles
+      - id: end-of-file-fixer            # Assure une newline en fin de fichier
+      - id: mixed-line-ending            # Normalise les fins de ligne en LF
+        args: ["--fix=lf"]
+      - id: no-commit-to-branch          # Empêche les commits directs sur main/master
+        stages: [commit-msg]
+      - id: trailing-whitespace          # Supprime les espaces en fin de ligne
+        args: [--markdown-linebreak-ext=md]
+
+  # Scan de secrets
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
+
+  # Conventional Commits
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.2.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+        args: [--verbose]
+
+  # Format justfile
+  - repo: https://github.com/instrumentl/pre-commit-just
+    rev: "v0.1"
+    hooks:
+      - id: format-justfile
+
+  # C# — dotnet format
+  - repo: local
+    hooks:
+      - id: dotnet-format
+        name: dotnet format
+        language: system
+        entry: /home/randy/.dotnet/dotnet format BattleTank.sln --verify-no-changes
+        pass_filenames: false
+        types_or: [c#]

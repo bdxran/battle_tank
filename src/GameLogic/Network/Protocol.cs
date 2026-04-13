@@ -41,7 +41,8 @@ public record GameStateFull(
     [property: Key(0)] uint SequenceNumber,
     [property: Key(1)] TankSnapshot[] Tanks,
     [property: Key(2)] BulletSnapshot[] Bullets,
-    [property: Key(3)] GamePhase Phase
+    [property: Key(3)] GamePhase Phase,
+    [property: Key(4)] ZoneSnapshot Zone
 );
 
 [MessagePackObject]
@@ -49,7 +50,8 @@ public record GameStateDelta(
     [property: Key(0)] uint SequenceNumber,
     [property: Key(1)] uint LastAckedInput,
     [property: Key(2)] TankSnapshot[] Tanks,
-    [property: Key(3)] BulletSnapshot[] Bullets
+    [property: Key(3)] BulletSnapshot[] Bullets,
+    [property: Key(4)] ZoneSnapshot Zone
 );
 
 [MessagePackObject]

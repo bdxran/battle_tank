@@ -11,7 +11,7 @@ namespace BattleTank.Godot.Nodes;
 
 /// <summary>
 /// Root node for the game client. Add to the client scene.
-/// Wires ClientNetworkManager → GameRenderer + HudNode.
+/// Wires ClientNetworkManager → GameRenderer + HudNode + GameOverScreen.
 /// Reads keyboard input and sends PlayerInput every frame.
 /// </summary>
 public partial class ClientNode : Node
@@ -22,7 +22,10 @@ public partial class ClientNode : Node
     private ClientNetworkManager _network = null!;
     private GameRenderer _renderer = null!;
     private HudNode _hud = null!;
+    private GameOverScreen _gameOverScreen = null!;
+    private int _localPlayerId;
     private uint _inputSequence;
+    private bool _eliminated;
 
     public override void _Ready()
     {
@@ -35,11 +38,16 @@ public partial class ClientNode : Node
         _hud = new HudNode();
         AddChild(_hud);
 
+        _gameOverScreen = new GameOverScreen();
+        AddChild(_gameOverScreen);
+
         _renderer = new GameRenderer();
         AddChild(_renderer);
 
         _network.ConnectedToServer += OnConnected;
         _network.DisconnectedFromServer += OnDisconnected;
+        _network.PlayerEliminated += OnPlayerEliminated;
+        _network.GameOver += OnGameOver;
 
         var error = _network.Connect(ServerAddress, ServerPort);
         if (error != Error.Ok)
@@ -50,14 +58,14 @@ public partial class ClientNode : Node
 
     public override void _Process(double delta)
     {
-        if (!_network.IsConnected()) return;
+        if (!_network.IsConnected() || _eliminated) return;
 
         var flags = ReadInput();
         if (flags != InputFlags.None)
         {
             _inputSequence++;
             _network.SendInput(new PlayerInput(
-                Multiplayer.GetUniqueId(),
+                _localPlayerId,
                 flags,
                 _inputSequence));
         }
@@ -65,19 +73,39 @@ public partial class ClientNode : Node
 
     public override void _ExitTree()
     {
-        _network?.Disconnect();
+        if (_network is null) return;
+        _network.ConnectedToServer -= OnConnected;
+        _network.DisconnectedFromServer -= OnDisconnected;
+        _network.PlayerEliminated -= OnPlayerEliminated;
+        _network.GameOver -= OnGameOver;
+        _network.Disconnect();
     }
 
     private void OnConnected()
     {
-        int localId = Multiplayer.GetUniqueId();
-        GD.Print($"[ClientNode] Connected as peer {localId}");
-        _renderer.Initialize(_network, _hud, localId);
+        _localPlayerId = Multiplayer.GetUniqueId();
+        GD.Print($"[ClientNode] Connected as peer {_localPlayerId}");
+        _renderer.Initialize(_network, _hud, _localPlayerId);
     }
 
     private void OnDisconnected()
     {
         GD.Print("[ClientNode] Disconnected from server");
+    }
+
+    private void OnPlayerEliminated(PlayerEliminatedMessage msg)
+    {
+        if (msg.EliminatedPlayerId == _localPlayerId)
+        {
+            _eliminated = true;
+            _gameOverScreen.ShowEliminated(msg.KillerPlayerId);
+        }
+    }
+
+    private void OnGameOver(GameOverMessage msg)
+    {
+        _eliminated = true;
+        _gameOverScreen.ShowWin(_localPlayerId, msg.WinnerPlayerId);
     }
 
     private static InputFlags ReadInput()

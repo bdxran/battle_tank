@@ -19,6 +19,20 @@ public record TankSnapshot(
 );
 
 [MessagePackObject]
+public record ZoneSnapshot(
+    [property: Key(0)] float CenterX,
+    [property: Key(1)] float CenterY,
+    [property: Key(2)] float Radius,
+    [property: Key(3)] float DamagePerSecond
+);
+
+public record WallData(float X, float Y, float Width, float Height)
+{
+    public float Right => X + Width;
+    public float Bottom => Y + Height;
+}
+
+[MessagePackObject]
 public record BulletSnapshot(
     [property: Key(0)] int Id,
     [property: Key(1)] float X,

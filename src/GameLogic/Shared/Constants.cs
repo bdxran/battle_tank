@@ -21,4 +21,9 @@ public static class Constants
 
     public const float MapWidth = 1000f;
     public const float MapHeight = 1000f;
+
+    public const float ZoneInitialRadius = 450f;  // pixels
+    public const float ZoneMinRadius = 50f;
+    public const float ZoneShrinkAmount = 80f;     // pixels per shrink step
+    public const float ZoneDamagePerSecond = 10f;
 }

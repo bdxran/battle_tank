@@ -16,6 +16,8 @@ public partial class ClientNetworkManager : Node
     public event Action? DisconnectedFromServer;
     public event Action<GameStateFull>? GameStateFullReceived;
     public event Action<GameStateDelta>? GameStateDeltaReceived;
+    public event Action<PlayerEliminatedMessage>? PlayerEliminated;
+    public event Action<GameOverMessage>? GameOver;
 
     public void Initialize(ILogger<ClientNetworkManager> logger)
     {
@@ -92,6 +94,16 @@ public partial class ClientNetworkManager : Node
                 case MessageType.GameStateDelta:
                     var delta = GameStateSerializer.Deserialize<GameStateDelta>(message.Payload);
                     GameStateDeltaReceived?.Invoke(delta);
+                    break;
+
+                case MessageType.PlayerEliminated:
+                    var elim = GameStateSerializer.Deserialize<PlayerEliminatedMessage>(message.Payload);
+                    PlayerEliminated?.Invoke(elim);
+                    break;
+
+                case MessageType.GameOver:
+                    var gameOver = GameStateSerializer.Deserialize<GameOverMessage>(message.Payload);
+                    GameOver?.Invoke(gameOver);
                     break;
 
                 default:

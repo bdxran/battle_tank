@@ -8,23 +8,23 @@
 - [x] Serveur ENet basique (connexion/déconnexion joueurs via MultiplayerAPI)
 - [x] Protocole de messages (MessagePack, types partagés GameLogic/Network)
 - [x] Entité Tank (position, direction, vie, vitesse)
-- [ ] Boucle de jeu serveur (game loop à tick fixe 20 TPS)
-- [ ] Contrôle du tank (déplacement, rotation, tir)
-- [ ] Entité Bullet (trajectoire, collision, dommages)
-- [ ] Détection de collisions (tank-tank, bullet-tank, bullet-mur)
-- [ ] Renderer Godot (TankNode, BulletNode, carte)
-- [ ] HUD basique (vie, nombre de joueurs restants)
-- [ ] Système de salle (GameRoom) et matchmaking basique
+- [x] Boucle de jeu serveur (game loop à tick fixe 20 TPS)
+- [x] Contrôle du tank (déplacement, rotation, tir)
+- [x] Entité Bullet (trajectoire, collision, dommages)
+- [x] Détection de collisions (tank-tank, bullet-tank, bullet-mur)
+- [x] Renderer Godot (TankNode, BulletNode, carte)
+- [x] HUD basique (vie, nombre de joueurs restants)
+- [x] Système de salle (GameRoom) et matchmaking basique
 
 ## Phase 2 — Battle Royale Solo (1vsAll)
 
 > Objectif : Une partie complète de BR jouable, du lobby à l'écran de victoire.
 
-- [ ] Zone de jeu rétrécissante (safe zone + zone de dégâts)
-- [ ] Élimination définitive (pas de respawn)
-- [ ] Écran de fin de partie (victoire / défaite / classement)
-- [ ] Minimap (joueurs visibles, zone safe)
-- [ ] Obstacles et murs sur la carte (couverture tactique)
+- [x] Zone de jeu rétrécissante (safe zone + zone de dégâts)
+- [x] Élimination définitive (pas de respawn)
+- [x] Écran de fin de partie (victoire / défaite / classement)
+- [x] Minimap (joueurs visibles, zone safe)
+- [x] Obstacles et murs sur la carte (couverture tactique)
 - [ ] Powerups (munitions, bouclier, vitesse)
 - [ ] Score / leaderboard en fin de partie
 - [ ] Lobby / salle d'attente avec compte à rebours avant début de partie

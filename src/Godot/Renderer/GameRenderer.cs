@@ -14,6 +14,7 @@ public partial class GameRenderer : Node2D
 
     private Network.ClientNetworkManager _network = null!;
     private HudNode _hud = null!;
+    private ZoneNode _zoneNode = null!;
     private int _localPlayerId;
 
     public void Initialize(Network.ClientNetworkManager network, HudNode hud, int localPlayerId)
@@ -21,6 +22,18 @@ public partial class GameRenderer : Node2D
         _network = network;
         _hud = hud;
         _localPlayerId = localPlayerId;
+
+        _hud.Initialize(localPlayerId);
+
+        _zoneNode = new ZoneNode();
+        AddChild(_zoneNode);
+
+        foreach (var wall in GameLogic.Shared.MapLayout.Walls)
+        {
+            var wallNode = new WallNode();
+            wallNode.Initialize(wall);
+            AddChild(wallNode);
+        }
 
         _network.GameStateFullReceived += OnGameStateFull;
         _network.GameStateDeltaReceived += OnGameStateDelta;
@@ -39,7 +52,8 @@ public partial class GameRenderer : Node2D
             GetOrCreateTankNode(snapshot.Id).UpdateFrom(snapshot);
 
         SyncBullets(state.Bullets);
-        UpdateHud(state.Tanks);
+        _zoneNode.UpdateFrom(state.Zone);
+        UpdateHud(state.Tanks, state.Zone);
     }
 
     private void OnGameStateDelta(GameStateDelta state)
@@ -51,7 +65,8 @@ public partial class GameRenderer : Node2D
         }
 
         SyncBullets(state.Bullets);
-        UpdateHud(state.Tanks);
+        _zoneNode.UpdateFrom(state.Zone);
+        UpdateHud(state.Tanks, state.Zone);
     }
 
     private TankNode GetOrCreateTankNode(int playerId)
@@ -85,7 +100,6 @@ public partial class GameRenderer : Node2D
             node.UpdateFrom(snapshot);
         }
 
-        // Remove nodes for bullets no longer in the state
         var toRemove = new List<int>();
         foreach (var id in _bulletNodes.Keys)
         {
@@ -100,7 +114,7 @@ public partial class GameRenderer : Node2D
         }
     }
 
-    private void UpdateHud(TankSnapshot[] tanks)
+    private void UpdateHud(TankSnapshot[] tanks, ZoneSnapshot zone)
     {
         int aliveCount = 0;
         int localHealth = 0;
@@ -115,5 +129,6 @@ public partial class GameRenderer : Node2D
 
         _hud.UpdateHealth(localHealth);
         _hud.UpdateAliveCount(aliveCount);
+        _hud.UpdateMinimap(tanks, zone);
     }
 }

@@ -83,6 +83,15 @@ public partial class GameRoomNode : Node
     {
         _room.Tick(TickInterval);
 
+        foreach (var elim in _room.GetAndClearEliminations())
+        {
+            var msg = new PlayerEliminatedMessage(elim.EliminatedId, elim.KillerId);
+            _network.Broadcast(new NetworkMessage(
+                MessageType.PlayerEliminated,
+                GameStateSerializer.Serialize(msg)));
+            _logger.LogInformation("Player {Eliminated} eliminated by {Killer}", elim.EliminatedId, elim.KillerId);
+        }
+
         if (_room.Phase == GamePhase.GameOver)
         {
             BroadcastGameOver();

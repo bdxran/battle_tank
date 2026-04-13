@@ -48,6 +48,11 @@ public class TankEntity
         _health = Math.Max(0, _health - amount);
     }
 
+    public void SetPosition(Vector2 position)
+    {
+        Position = position;
+    }
+
     public TankSnapshot GetSnapshot() =>
         new(Id, Position.X, Position.Y, Rotation, _health);
 

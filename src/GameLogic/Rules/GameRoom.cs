@@ -9,6 +9,8 @@ using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.GameLogic.Rules;
 
+public readonly record struct Elimination(int EliminatedId, int KillerId);
+
 public class GameRoom
 {
     private static readonly Vector2[] SpawnPoints =
@@ -24,6 +26,8 @@ public class GameRoom
     private readonly Dictionary<int, uint> _lastInputSeq;
     private readonly Dictionary<int, uint> _lastFireTick;
     private readonly List<BulletEntity> _bullets;
+    private readonly ZoneController _zone;
+    private readonly List<Elimination> _pendingEliminations;
     private int _nextBulletId;
     private uint _currentTick;
     private GamePhase _phase;
@@ -41,6 +45,8 @@ public class GameRoom
         _lastInputSeq = new Dictionary<int, uint>();
         _lastFireTick = new Dictionary<int, uint>();
         _bullets = new List<BulletEntity>();
+        _zone = new ZoneController();
+        _pendingEliminations = new List<Elimination>();
         _phase = GamePhase.WaitingForPlayers;
     }
 
@@ -109,11 +115,27 @@ public class GameRoom
 
             if ((flags & InputFlags.Fire) != 0)
                 TryFire(id, tank);
+
+            CollisionSystem.ClampTankToMap(tank);
+            foreach (var wall in MapLayout.Walls)
+                CollisionSystem.ResolveTankWallCollision(tank, wall);
         }
 
         TickBullets(deltaTime);
+        TickZone(deltaTime);
         _currentTick++;
         CheckWinCondition();
+    }
+
+    /// <summary>Returns pending eliminations since last call and clears the list.</summary>
+    public IReadOnlyList<Elimination> GetAndClearEliminations()
+    {
+        if (_pendingEliminations.Count == 0)
+            return [];
+
+        var result = _pendingEliminations.ToArray();
+        _pendingEliminations.Clear();
+        return result;
     }
 
     public GameStateFull GetFullState()
@@ -124,7 +146,7 @@ public class GameRoom
             tankSnapshots[i++] = tank.GetSnapshot();
 
         var bulletSnapshots = GetBulletSnapshots();
-        return new GameStateFull(_currentTick, tankSnapshots, bulletSnapshots, _phase);
+        return new GameStateFull(_currentTick, tankSnapshots, bulletSnapshots, _phase, _zone.GetSnapshot());
     }
 
     public GameStateDelta GetDeltaState(uint lastAckedTick)
@@ -135,7 +157,7 @@ public class GameRoom
             tankSnapshots[i++] = tank.GetSnapshot();
 
         var bulletSnapshots = GetBulletSnapshots();
-        return new GameStateDelta(_currentTick, lastAckedTick, tankSnapshots, bulletSnapshots);
+        return new GameStateDelta(_currentTick, lastAckedTick, tankSnapshots, bulletSnapshots, _zone.GetSnapshot());
     }
 
     public void Reset()
@@ -145,6 +167,8 @@ public class GameRoom
         _lastInputSeq.Clear();
         _lastFireTick.Clear();
         _bullets.Clear();
+        _pendingEliminations.Clear();
+        _zone.Reset();
         _nextBulletId = 0;
         _currentTick = 0;
         _phase = GamePhase.WaitingForPlayers;
@@ -181,23 +205,51 @@ public class GameRoom
                 continue;
             }
 
+            bool hitWall = false;
+            foreach (var wall in MapLayout.Walls)
+            {
+                if (CollisionSystem.BulletHitsWall(bullet, wall))
+                {
+                    bullet.Kill();
+                    hitWall = true;
+                    break;
+                }
+            }
+            if (hitWall) continue;
+
             foreach (var tank in _tanks.Values)
             {
                 if (CollisionSystem.BulletHitsTank(bullet, tank))
                 {
+                    bool wasAlive = tank.IsAlive;
                     tank.TakeDamage(Constants.BulletDamage);
                     bullet.Kill();
                     _logger.LogDebug("Bullet {BulletId} hit tank {TankId}", bullet.Id, tank.Id);
+
+                    if (wasAlive && !tank.IsAlive)
+                        _pendingEliminations.Add(new Elimination(tank.Id, bullet.OwnerId));
+
                     break;
                 }
             }
         }
 
-        // Remove dead bullets
         for (int i = _bullets.Count - 1; i >= 0; i--)
         {
             if (!_bullets[i].IsAlive)
                 _bullets.RemoveAt(i);
+        }
+    }
+
+    private void TickZone(float deltaTime)
+    {
+        foreach (var tank in _tanks.Values)
+        {
+            if (!tank.IsAlive) continue;
+            bool wasAlive = tank.IsAlive;
+            _zone.Tick(deltaTime, [tank]);
+            if (wasAlive && !tank.IsAlive)
+                _pendingEliminations.Add(new Elimination(tank.Id, -1));
         }
     }
 

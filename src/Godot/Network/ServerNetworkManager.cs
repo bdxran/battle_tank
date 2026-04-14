@@ -12,6 +12,9 @@ public partial class ServerNetworkManager : Node
 
     private ENetMultiplayerPeer _peer = null!;
 
+    private readonly System.Collections.Generic.Dictionary<int, ulong> _lastInputTick = new();
+    private const ulong MinInputIntervalMs = 40; // max 25 msg/s
+
     public event Action<int>? PlayerConnected;
     public event Action<int>? PlayerDisconnected;
     public event Action<int, PlayerInput>? InputReceived;
@@ -58,10 +61,16 @@ public partial class ServerNetworkManager : Node
         {
             return (int)_peer.GetPeer(peerId).GetStatistic(ENetPacketPeer.PeerStatistic.RoundTripTime);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Could not read RTT for peer {PeerId}", peerId);
             return -1;
         }
+    }
+
+    public void DisconnectPeer(int peerId)
+    {
+        _peer?.DisconnectPeer(peerId);
     }
 
     public void SendToPlayer(int peerId, NetworkMessage message)
@@ -108,6 +117,11 @@ public partial class ServerNetworkManager : Node
 
         if (message!.Type == MessageType.PlayerInput)
         {
+            ulong now = Time.GetTicksMsec();
+            if (_lastInputTick.TryGetValue(senderId, out ulong last) && now - last < MinInputIntervalMs)
+                return;
+            _lastInputTick[senderId] = now;
+
             try
             {
                 var input = GameStateSerializer.Deserialize<PlayerInput>(message.Payload);
@@ -145,8 +159,13 @@ public partial class ServerNetworkManager : Node
                     break;
 
                 case MessageType.LeaderboardRequest:
-                    var mode = (GameMode)message.Payload[0];
-                    LeaderboardRequested?.Invoke(senderId, mode);
+                    byte rawMode = message.Payload[0];
+                    if (!Enum.IsDefined(typeof(GameMode), (int)rawMode))
+                    {
+                        _logger.LogWarning("Invalid GameMode byte {Raw} from peer {PeerId}", rawMode, senderId);
+                        return;
+                    }
+                    LeaderboardRequested?.Invoke(senderId, (GameMode)rawMode);
                     break;
 
                 default:

@@ -297,6 +297,21 @@ public class GameRoomTests
 
         Assert.That(r.Value.SpeedMultiplier, Is.GreaterThan(1f));
     }
+
+    [Test]
+    public void GetPlayerTeamId_ReturnsMinusOneWhenNoTeamAssigned()
+    {
+        var room = CreateRoom();
+        room.AddPlayer(1);
+        Assert.That(room.GetPlayerTeamId(1), Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void GetPlayerTeamId_ReturnsMinusOneForUnknownPlayer()
+    {
+        var room = CreateRoom();
+        Assert.That(room.GetPlayerTeamId(999), Is.EqualTo(-1));
+    }
 }
 
 // --- Stress test ---

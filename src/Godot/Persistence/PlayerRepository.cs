@@ -37,31 +37,42 @@ public class PlayerRepository : IPlayerRepository
     public async Task UpdateStatsAsync(int accountId, GameMode mode, bool won, int kills, int durationSeconds)
     {
         var modeKey = mode.ToString();
-        var stats = await _db.PlayerStats.FirstOrDefaultAsync(s => s.AccountId == accountId && s.Mode == modeKey);
 
-        if (stats == null)
+        await using var transaction = await _db.Database.BeginTransactionAsync();
+        try
         {
-            stats = new PlayerStats { AccountId = accountId, Mode = modeKey };
-            _db.PlayerStats.Add(stats);
+            var stats = await _db.PlayerStats.FirstOrDefaultAsync(s => s.AccountId == accountId && s.Mode == modeKey);
+
+            if (stats == null)
+            {
+                stats = new PlayerStats { AccountId = accountId, Mode = modeKey };
+                _db.PlayerStats.Add(stats);
+            }
+
+            stats.GamesPlayed++;
+            stats.Kills += kills;
+            if (!won) stats.Deaths++;
+            if (won) stats.Wins++;
+            stats.PlaytimeSeconds += durationSeconds;
+
+            _db.GameRecords.Add(new GameRecord
+            {
+                AccountId = accountId,
+                Mode = modeKey,
+                Won = won,
+                Kills = kills,
+                DurationSeconds = durationSeconds,
+                PlayedAt = DateTime.UtcNow,
+            });
+
+            await _db.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
-
-        stats.GamesPlayed++;
-        stats.Kills += kills;
-        if (!won) stats.Deaths++;
-        if (won) stats.Wins++;
-        stats.PlaytimeSeconds += durationSeconds;
-
-        _db.GameRecords.Add(new GameRecord
+        catch
         {
-            AccountId = accountId,
-            Mode = modeKey,
-            Won = won,
-            Kills = kills,
-            DurationSeconds = durationSeconds,
-            PlayedAt = DateTime.UtcNow,
-        });
-
-        await _db.SaveChangesAsync();
+            await transaction.RollbackAsync();
+            throw;
+        }
     }
 
     public async Task<PlayerStats[]> GetStatsAsync(int accountId)

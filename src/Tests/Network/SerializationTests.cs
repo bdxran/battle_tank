@@ -149,4 +149,33 @@ public class SerializationTests
         Assert.That(result.Entries[0].Username, Is.EqualTo("TopPlayer"));
         Assert.That(result.Entries[0].Wins, Is.EqualTo(10));
     }
+
+    [Test]
+    public void PlayerJoinedMessage_RoundTrip()
+    {
+        var original = new PlayerJoinedMessage(PlayerId: 5, PlayerName: "Bravo");
+        var result = RoundTrip(original);
+        Assert.That(result.PlayerId, Is.EqualTo(5));
+        Assert.That(result.PlayerName, Is.EqualTo("Bravo"));
+    }
+
+    [Test]
+    public void PlayerEliminatedMessage_RoundTrip()
+    {
+        var original = new PlayerEliminatedMessage(EliminatedPlayerId: 3, KillerPlayerId: 7);
+        var result = RoundTrip(original);
+        Assert.That(result.EliminatedPlayerId, Is.EqualTo(3));
+        Assert.That(result.KillerPlayerId, Is.EqualTo(7));
+    }
+
+    [Test]
+    public void ZoneUpdateMessage_RoundTrip()
+    {
+        var original = new ZoneUpdateMessage(CenterX: 512f, CenterY: 384f, Radius: 250f, DamagePerSecond: 8f);
+        var result = RoundTrip(original);
+        Assert.That(result.CenterX, Is.EqualTo(512f));
+        Assert.That(result.CenterY, Is.EqualTo(384f));
+        Assert.That(result.Radius, Is.EqualTo(250f));
+        Assert.That(result.DamagePerSecond, Is.EqualTo(8f));
+    }
 }

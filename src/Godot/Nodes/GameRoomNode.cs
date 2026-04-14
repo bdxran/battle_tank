@@ -23,8 +23,9 @@ public partial class GameRoomNode : Node
     private int _ticksSinceMetrics;
     private const int MetricsIntervalTicks = 100; // every 5 s at 20 TPS
 
-    // Tracks peers that connected but haven't authenticated yet
-    private readonly HashSet<int> _pendingAuth = new();
+    // Tracks peers that connected but haven't authenticated yet (peerId → connection timestamp)
+    private readonly Dictionary<int, double> _pendingAuth = new();
+    private const double AuthTimeoutSeconds = 30.0;
     // Maps peerId → (accountId, nickname)
     private readonly Dictionary<int, (int AccountId, string Nickname)> _authenticated = new();
 
@@ -74,7 +75,7 @@ public partial class GameRoomNode : Node
 
     private void OnPlayerConnected(int peerId)
     {
-        _pendingAuth.Add(peerId);
+        _pendingAuth[peerId] = Time.GetUnixTimeFromSystem();
         _logger.LogInformation("Peer {PeerId} connected, awaiting authentication", peerId);
     }
 
@@ -114,7 +115,9 @@ public partial class GameRoomNode : Node
         try
         {
             var account = await _repository.FindByUsernameAsync(request.Username);
-            if (account == null || !BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
+            bool passwordValid = account != null && await Task.Run(
+                () => BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash));
+            if (!passwordValid)
             {
                 var fail = new LoginResponse(false, -1, "", "", "Invalid username or password");
                 _network.SendToPlayerReliable(peerId, new NetworkMessage(
@@ -154,7 +157,7 @@ public partial class GameRoomNode : Node
                 return;
             }
 
-            var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            var hash = await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(request.Password));
             var avatarSeed = request.Username.GetHashCode().ToString("x8");
             var account = await _repository.CreateAccountAsync(request.Username, hash, avatarSeed);
 
@@ -250,8 +253,26 @@ public partial class GameRoomNode : Node
         }
     }
 
+    private void EvictStalePendingAuth()
+    {
+        double now = Time.GetUnixTimeFromSystem();
+        var stale = new System.Collections.Generic.List<int>();
+        foreach (var kv in _pendingAuth)
+        {
+            if (now - kv.Value > AuthTimeoutSeconds)
+                stale.Add(kv.Key);
+        }
+        foreach (var id in stale)
+        {
+            _logger.LogWarning("Peer {PeerId} auth timeout — disconnecting", id);
+            _pendingAuth.Remove(id);
+            _network.DisconnectPeer(id);
+        }
+    }
+
     private void DoTick()
     {
+        EvictStalePendingAuth();
         _room.Tick(TickInterval);
 
         _ticksSinceMetrics++;
@@ -312,7 +333,7 @@ public partial class GameRoomNode : Node
             if (accountId < 0) continue;
 
             bool won = winnerTeamId >= 0
-                ? _room.GetPlayerAccountId(winnerId) >= 0 // team win: check via winnerId peer's team
+                ? _room.GetPlayerTeamId(peerId) == winnerTeamId
                 : peerId == winnerId;
             int playerKills = kills.TryGetValue(peerId, out int k) ? k : 0;
             results.Add(new PlayerResult(accountId, won, playerKills));

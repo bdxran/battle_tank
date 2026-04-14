@@ -99,6 +99,9 @@ public class GameRoom
     public int GetPlayerAccountId(int playerId)
         => _playerSessions.TryGetValue(playerId, out var session) ? session.AccountId : -1;
 
+    public int GetPlayerTeamId(int playerId)
+        => _playerTeams.TryGetValue(playerId, out int teamId) ? teamId : -1;
+
     public Result<TankEntity> AddPlayer(int playerId, string nickname = "")
     {
         if (_phase != GamePhase.WaitingForPlayers && _phase != GamePhase.Lobby)
@@ -180,29 +183,43 @@ public class GameRoom
         foreach (var (id, tank) in _tanks)
         {
             if (!tank.IsAlive) continue;
+            try
+            {
+                var session = _playerSessions[id];
+                var flags = session.InputBuffer;
+                tank.ApplyInput(flags, deltaTime);
+                tank.TickSpeedBoost(_currentTick);
 
-            var session = _playerSessions[id];
-            var flags = session.InputBuffer;
-            tank.ApplyInput(flags, deltaTime);
-            tank.TickSpeedBoost(_currentTick);
+                if ((flags & InputFlags.Fire) != 0)
+                    TryFire(session, tank);
 
-            if ((flags & InputFlags.Fire) != 0)
-                TryFire(session, tank);
-
-            CollisionSystem.ClampTankToMap(tank);
-            foreach (var wall in MapLayout.Walls)
-                CollisionSystem.ResolveTankWallCollision(tank, wall);
+                CollisionSystem.ClampTankToMap(tank);
+                foreach (var wall in MapLayout.Walls)
+                    CollisionSystem.ResolveTankWallCollision(tank, wall);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unhandled exception processing tank {TankId} — skipping", id);
+            }
         }
 
-        TickBullets(deltaTime);
+        try { TickBullets(deltaTime); }
+        catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in TickBullets — skipping"); }
 
         if (_rules.UseShrinkingZone)
-            TickZone(deltaTime);
+        {
+            try { TickZone(deltaTime); }
+            catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in TickZone — skipping"); }
+        }
 
         if (_rules.UsesPowerups)
-            TickPowerups();
+        {
+            try { TickPowerups(); }
+            catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in TickPowerups — skipping"); }
+        }
 
-        _rules.OnTick(_currentTick, deltaTime, _state);
+        try { _rules.OnTick(_currentTick, deltaTime, _state); }
+        catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in OnTick — skipping"); }
 
         _currentTick++;
 

@@ -1,3 +1,4 @@
+using System;
 using NUnit.Framework;
 using BattleTank.GameLogic.Shared;
 
@@ -42,9 +43,9 @@ public class ResultTests
     }
 
     [Test]
-    public void Fail_Value_IsDefault()
+    public void Fail_Value_ThrowsInvalidOperationException()
     {
         var result = Result<int>.Fail("err");
-        Assert.That(result.Value, Is.EqualTo(default(int)));
+        Assert.Throws<InvalidOperationException>(() => _ = result.Value);
     }
 }

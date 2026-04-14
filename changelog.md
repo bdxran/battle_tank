@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 9 — Solo & IA ennemie)
+
+- `GameLogic/AI/IBot.cs` — interface `IBot` : `ComputeInput(tanks, currentTick)` appelé à chaque tick
+- `GameLogic/AI/SimpleBot.cs` — implémentation `SimpleBot` : déplacement aléatoire changeant toutes les 2 s, rotation vers la cible la plus proche, tir dès l'alignement (tolérance 15°)
+- `GameLogic/Rules/TrainingRules.cs` — règles d'entraînement : démarrage immédiat avec 1 joueur (`MinPlayersToStart = 1`), pas de zone rétrécissante, respawn rapide sans condition de victoire
+- `GameLogic/Shared/Types.cs` — ajout de `GameMode.Training = 4`
+- `GameLogic/Network/Protocol.cs` — ajout `MessageType.JoinTraining` (0x50) et `JoinTrainingRequest` (nickname)
+- `GameLogic/Rules/IBattleRules.cs` — ajout propriété `int MinPlayersToStart` (toutes les implémentations retournent `Constants.MinPlayersToStart`, sauf `TrainingRules` qui retourne 1)
+- `GameLogic/Rules/GameRoom.cs` — `AddBot()` : crée un `SimpleBot` avec ID négatif et suffixe `[BOT]` ; `IsBot(id)` ; bots tick avant le loop tanks ; `Reset()` nettoie les bots
+- `Godot/Network/ServerNetworkManager.cs` — événement `JoinTrainingReceived` dispatché sur `MessageType.JoinTraining`
+- `Godot/Nodes/GameRoomNode.cs` — mode entraînement (`trainingMode=true`) : `TrainingRules`, auth bypass via `JoinTraining`, pas de stats ; bot fill au démarrage de la partie (`FillBotsIfNeeded`) ; `_botsFilled` reset à chaque partie
+
 ### Added (Phase 3 — Capture de zone)
 
 - `ControlPointsNode.cs` — nouveau node Godot qui dessine les zones de capture sur la carte principale ; couleur par équipe (jaune = neutre, bleu = team 0, rouge = team 1) avec arc de progression

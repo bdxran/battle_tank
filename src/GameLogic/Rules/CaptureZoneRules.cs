@@ -29,6 +29,7 @@ public class CaptureZoneRules : IBattleRules
     public bool IsFriendlyFireEnabled => true;
     public bool UseShrinkingZone => false;
     public bool UsesPowerups => false;
+    public int MinPlayersToStart => Constants.MinPlayersToStart;
 
     public void Initialize(GameRoomState state)
     {

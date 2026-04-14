@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.Extensions.Logging;
+using BattleTank.GameLogic.AI;
 using BattleTank.GameLogic.Entities;
 using BattleTank.GameLogic.Network;
 using BattleTank.GameLogic.Physics;
@@ -29,6 +30,9 @@ public class GameRoom
 
     private readonly ILogger<GameRoom> _logger;
     private readonly IBattleRules _rules;
+    private readonly Dictionary<int, IBot> _bots = new();
+    private readonly HashSet<int> _botIds = new();
+    private int _nextBotId = -1; // bots use negative IDs to avoid collision with ENet peer IDs
     private readonly Dictionary<int, TankEntity> _tanks;
     private readonly Dictionary<int, string> _playerNicknames;
     private readonly Dictionary<int, int> _playerKills;
@@ -102,6 +106,27 @@ public class GameRoom
     public int GetPlayerTeamId(int playerId)
         => _playerTeams.TryGetValue(playerId, out int teamId) ? teamId : -1;
 
+    /// <summary>Returns true if the given player ID belongs to a bot.</summary>
+    public bool IsBot(int playerId) => _botIds.Contains(playerId);
+
+    /// <summary>
+    /// Adds a bot-controlled player. Returns the assigned bot player ID (negative).
+    /// </summary>
+    public Result<int> AddBot(string nickname = "")
+    {
+        int botId = _nextBotId--;
+        string botNickname = string.IsNullOrWhiteSpace(nickname) ? $"Bot{-botId}[BOT]" : nickname;
+
+        var result = AddPlayer(botId, botNickname);
+        if (!result.IsSuccess)
+            return Result<int>.Fail(result.Error);
+
+        _botIds.Add(botId);
+        _bots[botId] = new SimpleBot(botId);
+        _logger.LogInformation("Bot {BotId} ({Nickname}) added", botId, botNickname);
+        return Result<int>.Ok(botId);
+    }
+
     public Result<TankEntity> AddPlayer(int playerId, string nickname = "")
     {
         if (_phase != GamePhase.WaitingForPlayers && _phase != GamePhase.Lobby)
@@ -140,6 +165,8 @@ public class GameRoom
         _playerKills.Remove(playerId);
         _playerTeams.Remove(playerId);
         _playerSessions.Remove(playerId);
+        _botIds.Remove(playerId);
+        _bots.Remove(playerId);
 
         _logger.LogInformation("Player {PlayerId} removed", playerId);
 
@@ -179,6 +206,13 @@ public class GameRoom
 
         if (_phase != GamePhase.InProgress)
             return;
+
+        // Compute and apply bot inputs before the main tank loop
+        foreach (var (botId, bot) in _bots)
+        {
+            if (_playerSessions.TryGetValue(botId, out var botSession) && _tanks.TryGetValue(botId, out var botTank) && botTank.IsAlive)
+                botSession.InputBuffer = bot.ComputeInput(_tanks, _currentTick);
+        }
 
         foreach (var (id, tank) in _tanks)
         {
@@ -281,6 +315,9 @@ public class GameRoom
         _playerTeams.Clear();
         _teamScores.Clear();
         _playerSessions.Clear();
+        _bots.Clear();
+        _botIds.Clear();
+        _nextBotId = -1;
         _bullets.Clear();
         _powerups.Clear();
         _controlPoints.Clear();
@@ -426,7 +463,7 @@ public class GameRoom
 
     private void CheckPhaseTransition()
     {
-        if (_phase == GamePhase.WaitingForPlayers && _tanks.Count >= Constants.MinPlayersToStart)
+        if (_phase == GamePhase.WaitingForPlayers && _tanks.Count >= _rules.MinPlayersToStart)
         {
             _phase = GamePhase.Lobby;
             _countdownStartTick = _currentTick;

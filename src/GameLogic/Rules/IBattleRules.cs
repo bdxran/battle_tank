@@ -12,6 +12,9 @@ public interface IBattleRules
     bool UseShrinkingZone { get; }
     bool UsesPowerups { get; }
 
+    /// <summary>Minimum number of players required to transition from WaitingForPlayers to Lobby.</summary>
+    int MinPlayersToStart { get; }
+
     /// <summary>Called once by GameRoom after construction to allow rules to populate ControlPoints etc.</summary>
     void Initialize(GameRoomState state);
 

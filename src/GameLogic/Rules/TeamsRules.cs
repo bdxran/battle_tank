@@ -23,6 +23,7 @@ public class TeamsRules : IBattleRules
     public bool IsFriendlyFireEnabled => false;
     public bool UseShrinkingZone => false;
     public bool UsesPowerups => true;
+    public int MinPlayersToStart => Constants.MinPlayersToStart;
 
     public void Initialize(GameRoomState state) { }
 

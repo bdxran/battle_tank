@@ -21,6 +21,7 @@ public partial class ServerNetworkManager : Node
     public event Action<int, LoginRequest>? LoginReceived;
     public event Action<int, RegisterRequest>? RegisterReceived;
     public event Action<int, GameMode>? LeaderboardRequested;
+    public event Action<int, string>? JoinTrainingReceived;
 
     public void Initialize(ILogger<ServerNetworkManager> logger)
     {
@@ -166,6 +167,11 @@ public partial class ServerNetworkManager : Node
                         return;
                     }
                     LeaderboardRequested?.Invoke(senderId, (GameMode)rawMode);
+                    break;
+
+                case MessageType.JoinTraining:
+                    var joinTraining = GameStateSerializer.Deserialize<JoinTrainingRequest>(message.Payload);
+                    JoinTrainingReceived?.Invoke(senderId, joinTraining.Nickname);
                     break;
 
                 default:

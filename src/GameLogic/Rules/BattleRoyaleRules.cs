@@ -17,6 +17,7 @@ public class BattleRoyaleRules : IBattleRules
     public bool IsFriendlyFireEnabled => true;
     public bool UseShrinkingZone => true;
     public bool UsesPowerups => true;
+    public int MinPlayersToStart => Constants.MinPlayersToStart;
 
     public void Initialize(GameRoomState state) { }
 

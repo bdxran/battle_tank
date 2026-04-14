@@ -20,6 +20,7 @@ public enum MessageType : byte
     RegisterResponse = 0x43,
     LeaderboardRequest = 0x44,
     LeaderboardResponse = 0x45,
+    JoinTraining = 0x50,
     Error = 0xFF,
 }
 
@@ -141,4 +142,9 @@ public record LeaderboardEntryMessage(
 public record LeaderboardResponse(
     [property: Key(0)] string Mode,
     [property: Key(1)] LeaderboardEntryMessage[] Entries
+);
+
+[MessagePackObject]
+public record JoinTrainingRequest(
+    [property: Key(0)] string Nickname
 );

@@ -115,7 +115,27 @@
 - [x] CI GitHub Actions — tests automatiques sur chaque push/PR
 - [x] Release GitHub Actions — build + export toutes plateformes + GitHub Release sur tag `v*`
 
-## Phase 9 — Assets & Polish artistique
+## Phase 9 — Solo & IA ennemie
+
+> Objectif : Permettre de jouer seul (entraînement ou partie solo) et combler les slots vides avec des bots IA.
+
+**Terrain d'entraînement :**
+- [x] Mode "Entraînement" sélectionnable depuis le menu principal (hors matchmaking)
+- [x] Lancement immédiat sans compte à rebours ni nombre minimum de joueurs
+- [x] Spawn de bots cibles (statiques ou en mouvement basique) pour s'exercer à viser/tirer
+- [x] Pas de stats persistées ni de leaderboard pour ce mode
+- [ ] Bouton "Rejoindre une partie" ou "Quitter" depuis l'écran d'entraînement
+
+**IA ennemie (bot fill) :**
+- [x] Interface `IBot` dans `GameLogic/` : décision de mouvement + tir à chaque tick
+- [x] Implémentation `SimpleBot` : déplacement aléatoire, tir vers le joueur le plus proche
+- [x] Option en lobby "Compléter avec des bots" (activée par défaut, désactivable)
+- [x] Après expiration du compte à rebours, remplir les slots vides avec des bots jusqu'à `MIN_PLAYERS_TO_START`
+- [x] Les bots apparaissent avec un suffixe `[BOT]` dans le HUD / kill feed
+- [x] Les bots participent aux règles normales (zone, powerups, élimination)
+- [x] Pas de stats enregistrées pour les kills sur bots en mode ranked
+
+## Phase 10 — Assets & Polish artistique
 
 > Objectif : Remplacer le rendu procédural par de vrais assets visuels et sonores.
 

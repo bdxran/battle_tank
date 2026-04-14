@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using BattleTank.GameLogic.Network;
 using BattleTank.GameLogic.Persistence;
 using BattleTank.GameLogic.Rules;
+using BattleTank.GameLogic.AI;
 using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.Godot.Nodes;
@@ -23,6 +24,13 @@ public partial class GameRoomNode : Node
     private int _ticksSinceMetrics;
     private const int MetricsIntervalTicks = 100; // every 5 s at 20 TPS
 
+    // Whether the current room is a training session (no auth, no stats, bot fill)
+    private bool _isTrainingMode;
+
+    // How many bots to fill when lobby countdown ends (0 = no fill)
+    private int _botFillCount = Constants.MaxPlayersPerRoom;
+    private bool _botsFilled;
+
     // Tracks peers that connected but haven't authenticated yet (peerId → connection timestamp)
     private readonly Dictionary<int, double> _pendingAuth = new();
     private const double AuthTimeoutSeconds = 30.0;
@@ -34,13 +42,21 @@ public partial class GameRoomNode : Node
         ILogger<GameRoomNode> logger,
         ILogger<GameRoom> roomLogger,
         IPlayerRepository repository,
-        ILeaderboardService leaderboard)
+        ILeaderboardService leaderboard,
+        bool trainingMode = false,
+        int botFillCount = Constants.MaxPlayersPerRoom)
     {
         _logger = logger;
         _network = network;
         _repository = repository;
         _leaderboard = leaderboard;
-        _room = new GameRoom(roomLogger);
+        _isTrainingMode = trainingMode;
+        _botFillCount = trainingMode ? Constants.MaxPlayersPerRoom - 1 : botFillCount;
+
+        IBattleRules rules = trainingMode
+            ? new TrainingRules()
+            : new BattleRoyaleRules();
+        _room = new GameRoom(roomLogger, rules);
 
         _network.PlayerConnected += OnPlayerConnected;
         _network.PlayerDisconnected += OnPlayerDisconnected;
@@ -48,6 +64,7 @@ public partial class GameRoomNode : Node
         _network.LoginReceived += OnLoginReceived;
         _network.RegisterReceived += OnRegisterReceived;
         _network.LeaderboardRequested += OnLeaderboardRequested;
+        _network.JoinTrainingReceived += OnJoinTrainingReceived;
     }
 
     public override void _Process(double delta)
@@ -71,6 +88,7 @@ public partial class GameRoomNode : Node
         _network.LoginReceived -= OnLoginReceived;
         _network.RegisterReceived -= OnRegisterReceived;
         _network.LeaderboardRequested -= OnLeaderboardRequested;
+        _network.JoinTrainingReceived -= OnJoinTrainingReceived;
     }
 
     private void OnPlayerConnected(int peerId)
@@ -110,6 +128,21 @@ public partial class GameRoomNode : Node
         _ = HandleLeaderboardRequestAsync(peerId, mode);
     }
 
+    private void OnJoinTrainingReceived(int peerId, string nickname)
+    {
+        if (!_isTrainingMode)
+        {
+            _logger.LogWarning("Peer {PeerId} sent JoinTraining but this is not a training room", peerId);
+            return;
+        }
+
+        if (_authenticated.ContainsKey(peerId))
+            return; // already joined
+
+        string displayNick = string.IsNullOrWhiteSpace(nickname) ? $"Trainee{peerId}" : nickname;
+        AuthenticatePeer(peerId, accountId: -1, displayNick, avatarSeed: "");
+    }
+
     private async Task HandleLoginAsync(int peerId, LoginRequest request)
     {
         try
@@ -127,7 +160,7 @@ public partial class GameRoomNode : Node
                 return;
             }
 
-            AuthenticatePeer(peerId, account.AccountId, account.Username, account.AvatarSeed);
+            AuthenticatePeer(peerId, account!.AccountId, account.Username, account.AvatarSeed);
 
             var response = new LoginResponse(true, account.AccountId, account.Username, account.AvatarSeed);
             _network.SendToPlayerReliable(peerId, new NetworkMessage(
@@ -240,6 +273,34 @@ public partial class GameRoomNode : Node
             GameStateSerializer.Serialize(response)));
     }
 
+    private void FillBotsIfNeeded()
+    {
+        if (_botFillCount <= 0) return;
+
+        int humanCount = _authenticated.Count;
+        int slotsToFill = Math.Min(_botFillCount, Constants.MaxPlayersPerRoom - humanCount);
+
+        for (int i = 0; i < slotsToFill; i++)
+        {
+            var result = _room.AddBot();
+            if (!result.IsSuccess)
+            {
+                _logger.LogWarning("Could not add bot: {Error}", result.Error);
+                break;
+            }
+
+            int botId = result.Value;
+            var nickname = _room.PlayerNicknames[botId];
+            var joined = new PlayerJoinedMessage(botId, nickname);
+            _network.Broadcast(new NetworkMessage(
+                MessageType.PlayerJoined,
+                GameStateSerializer.Serialize(joined)));
+        }
+
+        if (slotsToFill > 0)
+            _logger.LogInformation("Filled {Count} bot slot(s)", slotsToFill);
+    }
+
     private void EmitMetrics()
     {
         _logger.LogInformation("[metrics] players={PlayerCount} phase={Phase}",
@@ -273,7 +334,16 @@ public partial class GameRoomNode : Node
     private void DoTick()
     {
         EvictStalePendingAuth();
+
+        var phaseBefore = _room.Phase;
         _room.Tick(TickInterval);
+
+        // Fill empty slots with bots once, right after the game starts
+        if (!_botsFilled && phaseBefore == GamePhase.Lobby && _room.Phase == GamePhase.InProgress)
+        {
+            _botsFilled = true;
+            FillBotsIfNeeded();
+        }
 
         _ticksSinceMetrics++;
         if (_ticksSinceMetrics >= MetricsIntervalTicks)
@@ -296,6 +366,7 @@ public partial class GameRoomNode : Node
             BroadcastGameOver();
             var snapshot = CaptureGameResultSnapshot();
             _room.Reset();
+            _botsFilled = false;
             _ = SaveGameResultsAsync(snapshot);
             return;
         }
@@ -344,6 +415,9 @@ public partial class GameRoomNode : Node
 
     private async Task SaveGameResultsAsync(GameResultSnapshot snapshot)
     {
+        // Training mode: no stats persisted
+        if (_isTrainingMode) return;
+
         foreach (var result in snapshot.Results)
         {
             try

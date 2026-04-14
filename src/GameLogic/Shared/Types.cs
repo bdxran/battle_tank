@@ -16,6 +16,7 @@ public enum GameMode : byte
     Teams = 1,
     Deathmatch = 2,
     CaptureZone = 3,
+    Training = 4,
 }
 
 public enum PowerupType : byte

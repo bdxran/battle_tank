@@ -13,6 +13,13 @@
 | Tests | NUnit 4 |
 | Déploiement | Export Godot (serveur headless + client) |
 
+## Jouer
+
+Les builds sont disponibles dans les [Releases GitHub](../../releases/latest).
+
+- [Héberger un serveur](docs/server-setup.md) — Docker ou binaire direct
+- [Installer le client Linux / macOS](docs/client-setup.md)
+
 ## Démarrage rapide
 
 ```bash

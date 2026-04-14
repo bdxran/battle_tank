@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: Tests C#
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore packages
+        run: dotnet restore src/Tests/BattleTank.Tests.csproj
+
+      - name: Build
+        run: dotnet build src/Tests/BattleTank.Tests.csproj --no-restore
+
+      - name: Run tests
+        run: dotnet test src/Tests/BattleTank.Tests.csproj --no-build --logger "github-actions"

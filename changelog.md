@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MinimapNode.cs` — affichage des zones de capture sur la minimap avec couleur par équipe
 - `HudNode.cs` / `GameRenderer.cs` — `ControlPointSnapshot[]` propagé du `GameStateFull`/`GameStateDelta` jusqu'à la minimap et au `ControlPointsNode`
 
+### Added (Documentation — serveur & client)
+
+- `docs/server-setup.md` — guide d'hébergement : Docker (recommandé) + binaire direct, configuration réseau, systemd service
+- `docs/client-setup.md` — guide d'installation client : Linux (chmod + prérequis), macOS (Gatekeeper / xattr), Windows (SmartScreen)
+- `README.md` — section "Jouer" avec liens vers les deux guides et la page releases
+- `release.yml` — les archives de release incluent désormais `SETUP.md` (copie du guide correspondant)
+
+### Added (CI/CD — GitHub Actions)
+
+- `.github/workflows/ci.yml` — pipeline CI : tests NUnit C# sur chaque push/PR vers master
+- `.github/workflows/release.yml` — pipeline release : déclenché sur tag `v*`, exporte server Linux + client Linux/Windows/macOS via `barichello/godot-ci:4.6.2`, crée une GitHub Release avec les archives téléchargeables et les notes de release générées depuis `git log`
+
 ### Added (Phase 7 — Ops)
 
 - `export_presets.cfg` — Godot 4.6 export presets: Linux Server (dedicated headless), Linux client, Windows client, macOS client
@@ -33,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TankNode.cs` — damage flash overlay (white semi-transparent rect, 0.15s) on health decrease
 - `KillFeedNode.cs` — kill feed overlay (top-right `CanvasLayer`) showing "Player X eliminated Player Y" entries that auto-expire after 4s (max 5 visible)
 - `GameRenderer.cs` — wired `PlayerEliminated` network event to `KillFeedNode`
+- `BulletNode.cs` — muzzle flash animation (orange fading circle, 0.12s) on bullet creation
+- `AudioManagerNode.cs` — sound effect manager; loads `fire.ogg`, `hit.ogg`, `death.ogg` from `res://assets/sounds/` at startup; missing files silently ignored; events: `BulletCreated` → fire, `TankHit` → hit, `TankEliminated` → death
+- `SpectatorOverlayNode.cs` — spectator overlay (CanvasLayer) displayed when the local player is eliminated; shows "SPECTATING" banner and live survivor count
+- `GameRenderer.cs` — `EnterSpectatorMode()` enables `Camera2D` that follows the first alive tank; events `BulletCreated`, `TankHit`, `TankEliminated` emitted for audio
+- `ClientNode.cs` — on elimination: enters spectator mode instead of showing game-over screen immediately; game-over screen shown only when the match ends
+- `assets/sounds/README.md` — placeholder documenting expected `.ogg` filenames
 
 ### Fixed (Phase 6 — quality corrections)
 

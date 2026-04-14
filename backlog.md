@@ -74,11 +74,11 @@
 - [x] Tests unitaires NUnit — couverture minimum 80% (GameLogic/)
 - [x] Tests d'intégration protocole (sérialisation/désérialisation MessagePack)
 - [x] Animations : explosion de tank, destruction (procédural via _Draw)
-- [ ] Animations : tir (muzzle flash — nécessite OwnerId dans BulletSnapshot)
-- [ ] Effets sonores
+- [x] Animations : tir (muzzle flash — nécessite OwnerId dans BulletSnapshot)
+- [x] Effets sonores
 - [x] Feedback visuel hit (flash dommage)
 - [x] Kill feed (barre latérale "X a tué Y")
-- [ ] Mode spectateur pour les joueurs éliminés
+- [x] Mode spectateur pour les joueurs éliminés
 
 ## Phase 6 — Corrections qualité (code review)
 
@@ -112,6 +112,44 @@
 - [x] Export Godot client (Windows/Linux/Mac)
 - [x] Monitoring & alertes (latence ENet, nombre de joueurs)
 - [x] Déploiement (plateforme cible à définir)
+- [x] CI GitHub Actions — tests automatiques sur chaque push/PR
+- [x] Release GitHub Actions — build + export toutes plateformes + GitHub Release sur tag `v*`
+
+## Phase 8 — Assets & Polish artistique
+
+> Objectif : Remplacer le rendu procédural par de vrais assets visuels et sonores.
+
+**Visuels — sprites & animations :**
+- [ ] Sprite tank joueur local
+- [ ] Sprite tank adversaire (+ variante par équipe/couleur)
+- [ ] Animation déplacement tank (chenilles)
+- [ ] Animation rotation tourelle
+- [ ] Animation tir (muzzle flash)
+- [ ] Animation explosion tank
+- [ ] Animation destruction tank (épave)
+- [ ] Sprite bullet
+- [ ] Tileset carte (sol, murs, obstacles)
+- [ ] Sprite powerups (munitions, bouclier, vitesse)
+- [ ] UI : icônes HUD (vie, munitions), minimap, écrans lobby / victoire / défaite
+
+**Audio — SFX :**
+- [ ] Tir (`fire.ogg`)
+- [ ] Impact bullet sur tank (`hit.ogg`)
+- [ ] Explosion / mort tank (`death.ogg`)
+- [ ] Pickup powerup
+- [ ] Compte à rebours lobby (bip)
+
+**Audio — Musique :**
+- [ ] Musique lobby
+- [ ] Musique en jeu
+- [ ] Jingle victoire / défaite
+
+**Intégration code :**
+- [ ] Remplacer `_Draw()` de `TankNode` par `AnimatedSprite2D`
+- [ ] Remplacer `_Draw()` de `BulletNode` par `Sprite2D`
+- [ ] Remplacer `DrawRect` de `WallNode` par tileset
+- [ ] Brancher les fichiers `.ogg` dans `assets/sounds/`
+- [ ] Ajouter musiques via `AudioStreamPlayer` dans `AudioManagerNode`
 
 ---
 

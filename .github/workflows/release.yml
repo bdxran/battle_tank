@@ -1,0 +1,185 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  GODOT_VERSION: "4.6.2"
+
+jobs:
+  test:
+    name: Tests C#
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore & test
+        run: |
+          dotnet restore src/Tests/BattleTank.Tests.csproj
+          dotnet test src/Tests/BattleTank.Tests.csproj --logger "github-actions"
+
+  export:
+    name: Export — ${{ matrix.preset }}
+    needs: test
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:${{ env.GODOT_VERSION }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: "Linux Server"
+            artifact: server-linux
+            output: server.x86_64
+            archive: server-linux.tar.gz
+            archive_cmd: tar czf
+
+          - preset: "Linux"
+            artifact: client-linux
+            output: BattleTank.x86_64
+            archive: client-linux.tar.gz
+            archive_cmd: tar czf
+
+          - preset: "Windows Desktop"
+            artifact: client-windows
+            output: BattleTank.exe
+            archive: client-windows.zip
+            archive_cmd: zip -r
+
+          - preset: "macOS"
+            artifact: client-macos
+            output: BattleTank.zip
+            archive: client-macos.zip
+            archive_cmd: cp  # Godot already produces a zip for macOS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Install Godot export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable/* \
+             ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/ 2>/dev/null || true
+
+      - name: Restore NuGet packages
+        run: dotnet restore BattleTank.sln
+
+      - name: Build C# assemblies
+        run: dotnet build BattleTank.sln --no-restore
+
+      - name: Export — ${{ matrix.preset }}
+        run: |
+          mkdir -p dist/${{ matrix.artifact }}
+          godot --headless --export-release "${{ matrix.preset }}" \
+            dist/${{ matrix.artifact }}/${{ matrix.output }}
+
+      - name: Add setup doc to server package
+        if: matrix.artifact == 'server-linux'
+        run: cp docs/server-setup.md dist/${{ matrix.artifact }}/SETUP.md
+
+      - name: Add setup doc to client-linux package
+        if: matrix.artifact == 'client-linux'
+        run: cp docs/client-setup.md dist/${{ matrix.artifact }}/SETUP.md
+
+      - name: Add setup doc to client-windows package
+        if: matrix.artifact == 'client-windows'
+        run: cp docs/client-setup.md dist/${{ matrix.artifact }}/SETUP.md
+
+      - name: Package archive (tar.gz)
+        if: endsWith(matrix.archive, '.tar.gz')
+        run: |
+          cd dist/${{ matrix.artifact }}
+          tar czf ../../${{ matrix.archive }} .
+
+      - name: Package archive (zip)
+        if: endsWith(matrix.archive, '.zip') && matrix.artifact != 'client-macos'
+        run: |
+          cd dist/${{ matrix.artifact }}
+          zip -r ../../${{ matrix.archive }} .
+
+      - name: Package macOS (add setup doc to Godot zip)
+        if: matrix.artifact == 'client-macos'
+        run: |
+          cd dist/${{ matrix.artifact }}
+          cp ../../docs/client-setup.md SETUP.md
+          zip BattleTank.zip SETUP.md
+          cp BattleTank.zip ../../${{ matrix.archive }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.archive }}
+
+  release:
+    name: Create GitHub Release
+    needs: export
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate changelog for release notes
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | sed -n '2p')
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          else
+            NOTES=$(git log --pretty=format:"- %s" --no-merges | head -20)
+          fi
+          echo "NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Battle Tank ${{ github.ref_name }}"
+          body: |
+            ## Nouveautés
+
+            ${{ steps.changelog.outputs.NOTES }}
+
+            ## Téléchargements
+
+            | Plateforme | Fichier |
+            |------------|---------|
+            | Serveur Linux | `server-linux.tar.gz` |
+            | Client Linux | `client-linux.tar.gz` |
+            | Client Windows | `client-windows.zip` |
+            | Client macOS | `client-macos.zip` |
+
+            ### Lancer une partie locale
+            1. Télécharger `server-linux.tar.gz` et votre client
+            2. Démarrer le serveur : `./server.x86_64 --headless -- --server`
+            3. Lancer le client et entrer l'adresse IP du serveur
+          files: |
+            artifacts/server-linux/server-linux.tar.gz
+            artifacts/client-linux/client-linux.tar.gz
+            artifacts/client-windows/client-windows.zip
+            artifacts/client-macos/client-macos.zip
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}

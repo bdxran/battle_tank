@@ -55,12 +55,6 @@ jobs:
             archive: client-windows.zip
             archive_cmd: zip -r
 
-          - preset: "macOS"
-            artifact: client-macos
-            output: BattleTank.zip
-            archive: client-macos.zip
-            archive_cmd: cp  # Godot already produces a zip for macOS
-
     steps:
       - uses: actions/checkout@v4
 
@@ -112,18 +106,10 @@ jobs:
           tar czf ../../${{ matrix.archive }} .
 
       - name: Package archive (zip)
-        if: endsWith(matrix.archive, '.zip') && matrix.artifact != 'client-macos'
+        if: endsWith(matrix.archive, '.zip')
         run: |
           cd dist/${{ matrix.artifact }}
           zip -r ../../${{ matrix.archive }} .
-
-      - name: Package macOS (add setup doc to Godot zip)
-        if: matrix.artifact == 'client-macos'
-        run: |
-          cd dist/${{ matrix.artifact }}
-          cp ../../docs/client-setup.md SETUP.md
-          zip BattleTank.zip SETUP.md
-          cp BattleTank.zip ../../${{ matrix.archive }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -177,7 +163,6 @@ jobs:
             | Serveur Linux | `server-linux.tar.gz` |
             | Client Linux | `client-linux.tar.gz` |
             | Client Windows | `client-windows.zip` |
-            | Client macOS | `client-macos.zip` |
 
             ### Lancer une partie locale
             1. Télécharger `server-linux.tar.gz` et votre client
@@ -187,6 +172,5 @@ jobs:
             artifacts/server-linux/server-linux.tar.gz
             artifacts/client-linux/client-linux.tar.gz
             artifacts/client-windows/client-windows.zip
-            artifacts/client-macos/client-macos.zip
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

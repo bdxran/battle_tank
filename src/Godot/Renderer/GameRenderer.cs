@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using Godot;
 using BattleTank.GameLogic.Network;
 using BattleTank.GameLogic.Shared;
@@ -11,13 +12,20 @@ public partial class GameRenderer : Node2D
 {
     private readonly Dictionary<int, TankNode> _tankNodes = new();
     private readonly Dictionary<int, BulletNode> _bulletNodes = new();
+    private readonly Dictionary<int, int> _tankPrevHealth = new();
 
     private Network.ClientNetworkManager _network = null!;
     private HudNode _hud = null!;
     private ZoneNode _zoneNode = null!;
     private ControlPointsNode _controlPointsNode = null!;
     private KillFeedNode _killFeed = null!;
+    private Camera2D _camera = null!;
     private int _localPlayerId;
+    private bool _spectating;
+
+    public event Action? BulletCreated;
+    public event Action? TankHit;
+    public event Action? TankEliminated;
 
     public void Initialize(Network.ClientNetworkManager network, HudNode hud, int localPlayerId)
     {
@@ -43,9 +51,18 @@ public partial class GameRenderer : Node2D
         _killFeed = new KillFeedNode();
         AddChild(_killFeed);
 
+        _camera = new Camera2D { Enabled = false };
+        AddChild(_camera);
+
         _network.GameStateFullReceived += OnGameStateFull;
         _network.GameStateDeltaReceived += OnGameStateDelta;
         _network.PlayerEliminated += OnPlayerEliminated;
+    }
+
+    public void EnterSpectatorMode()
+    {
+        _spectating = true;
+        _camera.Enabled = true;
     }
 
     public override void _ExitTree()
@@ -59,7 +76,10 @@ public partial class GameRenderer : Node2D
     private void OnGameStateFull(GameStateFull state)
     {
         foreach (var snapshot in state.Tanks)
+        {
             GetOrCreateTankNode(snapshot.Id).UpdateFrom(snapshot);
+            _tankPrevHealth[snapshot.Id] = snapshot.Health;
+        }
 
         SyncBullets(state.Bullets);
         _zoneNode.UpdateFrom(state.Zone);
@@ -73,12 +93,25 @@ public partial class GameRenderer : Node2D
         {
             if (_tankNodes.TryGetValue(snapshot.Id, out var node))
                 node.UpdateFrom(snapshot);
+
+            if (_tankPrevHealth.TryGetValue(snapshot.Id, out int prevHp))
+            {
+                if (snapshot.Health <= 0 && prevHp > 0)
+                    TankEliminated?.Invoke();
+                else if (snapshot.Health < prevHp && snapshot.Health > 0)
+                    TankHit?.Invoke();
+            }
+
+            _tankPrevHealth[snapshot.Id] = snapshot.Health;
         }
 
         SyncBullets(state.Bullets);
         _zoneNode.UpdateFrom(state.Zone);
         _controlPointsNode.UpdateFrom(state.ControlPoints);
         UpdateHud(state.Tanks, state.Zone, state.ControlPoints);
+
+        if (_spectating)
+            UpdateSpectatorCamera(state.Tanks);
     }
 
     private TankNode GetOrCreateTankNode(int playerId)
@@ -107,6 +140,7 @@ public partial class GameRenderer : Node2D
                 node.Initialize(snapshot.Id);
                 AddChild(node);
                 _bulletNodes[snapshot.Id] = node;
+                BulletCreated?.Invoke();
             }
 
             node.UpdateFrom(snapshot);
@@ -147,5 +181,17 @@ public partial class GameRenderer : Node2D
         _hud.UpdateHealth(localHealth);
         _hud.UpdateAliveCount(aliveCount);
         _hud.UpdateMinimap(tanks, zone, controlPoints);
+    }
+
+    private void UpdateSpectatorCamera(TankSnapshot[] tanks)
+    {
+        foreach (var tank in tanks)
+        {
+            if (tank.Health > 0)
+            {
+                _camera.Position = new Vector2(tank.X, tank.Y);
+                return;
+            }
+        }
     }
 }

@@ -24,11 +24,14 @@ public partial class ClientNode : Node
     private HudNode _hud = null!;
     private GameOverScreen _gameOverScreen = null!;
     private LoginScreen _loginScreen = null!;
+    private SpectatorOverlayNode _spectatorOverlay = null!;
+    private AudioManagerNode _audioManager = null!;
     private int _localPlayerId;
     private int _accountId = -1;
     private string _nickname = "";
     private uint _inputSequence;
     private bool _eliminated;
+    private bool _spectating;
     private bool _authenticated;
 
     public override void _Ready()
@@ -53,6 +56,12 @@ public partial class ClientNode : Node
         _loginScreen.RegisterRequested += OnRegisterRequested;
         AddChild(_loginScreen);
 
+        _spectatorOverlay = new SpectatorOverlayNode();
+        AddChild(_spectatorOverlay);
+
+        _audioManager = new AudioManagerNode();
+        AddChild(_audioManager);
+
         _network.ConnectedToServer += OnConnected;
         _network.DisconnectedFromServer += OnDisconnected;
         _network.PlayerEliminated += OnPlayerEliminated;
@@ -60,6 +69,7 @@ public partial class ClientNode : Node
         _network.LoginResponseReceived += OnLoginResponse;
         _network.RegisterResponseReceived += OnRegisterResponse;
         _network.LeaderboardResponseReceived += OnLeaderboardResponse;
+        _network.GameStateDeltaReceived += OnGameStateDeltaForSpectator;
 
         _loginScreen.Show();
 
@@ -95,6 +105,7 @@ public partial class ClientNode : Node
         _network.LoginResponseReceived -= OnLoginResponse;
         _network.RegisterResponseReceived -= OnRegisterResponse;
         _network.LeaderboardResponseReceived -= OnLeaderboardResponse;
+        _network.GameStateDeltaReceived -= OnGameStateDeltaForSpectator;
         _network.Disconnect();
     }
 
@@ -103,6 +114,7 @@ public partial class ClientNode : Node
         _localPlayerId = Multiplayer.GetUniqueId();
         GD.Print($"[ClientNode] Connected as peer {_localPlayerId}");
         _renderer.Initialize(_network, _hud, _localPlayerId);
+        _audioManager.Initialize(_network, _renderer);
         _loginScreen.OnConnected();
     }
 
@@ -152,18 +164,31 @@ public partial class ClientNode : Node
         GD.Print($"[ClientNode] Leaderboard received for mode {response.Mode} ({response.Entries.Length} entries)");
     }
 
+    private void OnGameStateDeltaForSpectator(GameStateDelta delta)
+    {
+        if (!_spectating) return;
+        int aliveCount = 0;
+        foreach (var tank in delta.Tanks)
+            if (tank.Health > 0) aliveCount++;
+        _spectatorOverlay.UpdateAliveCount(aliveCount);
+    }
+
     private void OnPlayerEliminated(PlayerEliminatedMessage msg)
     {
         if (msg.EliminatedPlayerId == _localPlayerId)
         {
             _eliminated = true;
-            _gameOverScreen.ShowEliminated(msg.KillerPlayerId);
+            _spectating = true;
+            _renderer.EnterSpectatorMode();
+            _spectatorOverlay.Show();
         }
     }
 
     private void OnGameOver(GameOverMessage msg)
     {
         _eliminated = true;
+        _spectating = false;
+        _spectatorOverlay.Hide();
         _gameOverScreen.ShowWin(_localPlayerId, msg.WinnerPlayerId);
     }
 

@@ -24,6 +24,9 @@ public partial class GameRoomNode : Node
     private int _ticksSinceMetrics;
     private const int MetricsIntervalTicks = 100; // every 5 s at 20 TPS
 
+    // Optional room code; if set, clients must supply matching code to join
+    public string? RoomCode { get; set; }
+
     // Whether the current room is a training session (no auth, no stats, bot fill)
     private bool _isTrainingMode;
 
@@ -128,7 +131,7 @@ public partial class GameRoomNode : Node
         _ = HandleLeaderboardRequestAsync(peerId, mode);
     }
 
-    private void OnJoinTrainingReceived(int peerId, string nickname)
+    private void OnJoinTrainingReceived(int peerId, JoinTrainingRequest request)
     {
         if (!_isTrainingMode)
         {
@@ -139,7 +142,17 @@ public partial class GameRoomNode : Node
         if (_authenticated.ContainsKey(peerId))
             return; // already joined
 
-        string displayNick = string.IsNullOrWhiteSpace(nickname) ? $"Trainee{peerId}" : nickname;
+        if (!string.IsNullOrEmpty(RoomCode) && request.RoomCode != RoomCode)
+        {
+            var fail = new LoginResponse(false, -1, "", "", "Code incorrect");
+            _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                MessageType.LoginResponse,
+                GameStateSerializer.Serialize(fail)));
+            _logger.LogWarning("Peer {PeerId} supplied wrong room code", peerId);
+            return;
+        }
+
+        string displayNick = string.IsNullOrWhiteSpace(request.Nickname) ? $"Trainee{peerId}" : request.Nickname;
         AuthenticatePeer(peerId, accountId: -1, displayNick, avatarSeed: "");
     }
 
@@ -147,6 +160,16 @@ public partial class GameRoomNode : Node
     {
         try
         {
+            if (!string.IsNullOrEmpty(RoomCode) && request.RoomCode != RoomCode)
+            {
+                var codeFailure = new LoginResponse(false, -1, "", "", "Code incorrect");
+                _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                    MessageType.LoginResponse,
+                    GameStateSerializer.Serialize(codeFailure)));
+                _logger.LogWarning("Peer {PeerId} supplied wrong room code", peerId);
+                return;
+            }
+
             var account = await _repository.FindByUsernameAsync(request.Username);
             bool passwordValid = account != null && await Task.Run(
                 () => BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash));

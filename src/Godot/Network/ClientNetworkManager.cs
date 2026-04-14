@@ -6,7 +6,7 @@ using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.Godot.Network;
 
-public partial class ClientNetworkManager : Node
+public partial class ClientNetworkManager : Node, IGameStateProvider
 {
     private ILogger<ClientNetworkManager> _logger = null!;
 

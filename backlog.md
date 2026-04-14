@@ -135,6 +135,32 @@
 - [x] Les bots participent aux règles normales (zone, powerups, élimination)
 - [x] Pas de stats enregistrées pour les kills sur bots en mode ranked
 
+## Phase 11 — Solo local & découverte de parties multijoueur
+
+> Objectif : Le client peut fonctionner sans serveur dédié (solo avec bots), et le multijoueur se fait via découverte LAN — un joueur héberge, les autres rejoignent depuis un écran de recherche.
+
+**Menu principal :**
+- [x] Créer `MainMenuScreen` (remplace la connexion automatique au démarrage)
+- [x] Trois entrées : « Jouer solo », « Héberger une partie », « Rejoindre une partie »
+
+**Mode solo local (offline) :**
+- [x] Créer `LocalGameNode` : instancie `GameRoom` + bots sans couche réseau
+- [x] Brancher l'input clavier directement sur `GameRoom.ApplyInput()`
+- [x] Alimenter `GameRenderer` depuis un snapshot local (`room.GetSnapshot()`) à 20 TPS
+- [x] Réutiliser `SimpleBot` et `GameRoom.AddBot()` pour remplir les slots
+- [x] Tous les modes sélectionnables depuis `MainMenuScreen` (Training, BattleRoyale, Teams, Deathmatch, CaptureZone)
+
+**Hébergement local :**
+- [x] Créer `HostNode` : démarre `ServerNode` en in-process + connecte un `ClientNode` en loopback
+- [x] Créer `LanAnnouncer` : broadcast UDP toutes les 2s sur le port 4243 (nom, port, joueurs, mode)
+- [x] Code de room optionnel (protection par mot de passe)
+
+**Découverte de parties (Room Browser) :**
+- [x] Créer `LanDiscovery` : écoute les broadcasts UDP LAN, maintient une liste avec TTL 6s
+- [x] Créer `RoomBrowserScreen` : affiche les parties découvertes + saisie IP manuelle, bouton « Rejoindre »
+- [x] `RoomBrowserScreen` → `ClientNode.ConnectTo(ip, port)` → `LoginScreen` existante inchangée
+- [x] `RoomPasswordScreen` : demande le code si la partie est protégée
+
 ## Phase 10 — Assets & Polish artistique
 
 > Objectif : Remplacer le rendu procédural par de vrais assets visuels et sonores.

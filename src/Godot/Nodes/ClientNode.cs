@@ -10,27 +10,43 @@ using BattleTank.Godot.UI;
 namespace BattleTank.Godot.Nodes;
 
 /// <summary>
-/// Root node for the game client. Add to the client scene.
-/// Wires ClientNetworkManager → GameRenderer + HudNode + GameOverScreen.
-/// Reads keyboard input and sends PlayerInput every frame.
+/// Root node for the game client. Manages all navigation flows:
+///   MainMenu → Solo (LocalGameNode) | Host (HostNode) | Join (RoomBrowserScreen → LoginScreen)
 /// </summary>
 public partial class ClientNode : Node
 {
-    private enum GamePhase { Connecting, Lobby, InGame, GameOver }
+    private enum GamePhase { MainMenu, Solo, Connecting, Lobby, InGame, GameOver }
 
     [Export] public string ServerAddress { get; set; } = "127.0.0.1";
     [Export] public int ServerPort { get; set; } = Constants.ServerPort;
 
+    // Network (used for remote modes)
     private ClientNetworkManager _network = null!;
+
+    // Rendering
     private GameRenderer _renderer = null!;
     private HudNode _hud = null!;
+
+    // UI screens (persistent)
+    private MainMenuScreen _mainMenuScreen = null!;
+    private SoloModeScreen _soloModeScreen = null!;
+    private HostSetupScreen _hostSetupScreen = null!;
+    private ServerInfoScreen _serverInfoScreen = null!;
+    private RoomBrowserScreen? _roomBrowserScreen;
     private GameOverScreen _gameOverScreen = null!;
     private LoginScreen _loginScreen = null!;
     private TrainingOverlayNode _trainingOverlay = null!;
     private SpectatorOverlayNode _spectatorOverlay = null!;
     private AudioManagerNode _audioManager = null!;
     private CrashReportScreen _crashReportScreen = null!;
-    private CrashReporter _crashReporter = null!;
+
+    // In-process server (host mode)
+    private HostNode? _hostNode;
+
+    // Local offline game
+    private LocalGameNode? _localGameNode;
+
+    // Per-session state
     private int _localPlayerId;
     private int _accountId = -1;
     private string _nickname = "";
@@ -39,7 +55,10 @@ public partial class ClientNode : Node
     private bool _spectating;
     private bool _authenticated;
     private bool _trainingMode;
-    private GamePhase _gamePhase = GamePhase.Connecting;
+    private string? _pendingRoomCode;
+    private GamePhase _gamePhase = GamePhase.MainMenu;
+
+    private CrashReporter _crashReporter = null!;
 
     public override void _Ready()
     {
@@ -49,6 +68,7 @@ public partial class ClientNode : Node
 
         var loggerFactory = new GodotLoggerFactory(_crashReporter);
 
+        // Network (only active for remote modes)
         _network = new ClientNetworkManager();
         _network.Initialize(loggerFactory.CreateLogger<ClientNetworkManager>());
         AddChild(_network);
@@ -84,6 +104,32 @@ public partial class ClientNode : Node
         _crashReportScreen.Initialize(_crashReporter, mailer);
         AddChild(_crashReportScreen);
 
+        // Main menu screens
+        _mainMenuScreen = new MainMenuScreen();
+        _mainMenuScreen.SoloRequested += OnSoloRequested;
+        _mainMenuScreen.HostRequested += OnHostRequested;
+        _mainMenuScreen.JoinRequested += OnJoinMenuRequested;
+        AddChild(_mainMenuScreen);
+
+        _soloModeScreen = new SoloModeScreen();
+        _soloModeScreen.SoloModeSelected += OnSoloModeSelected;
+        _soloModeScreen.BackRequested += () => { _soloModeScreen.Hide(); _mainMenuScreen.Show(); };
+        AddChild(_soloModeScreen);
+        _soloModeScreen.Hide();
+
+        _hostSetupScreen = new HostSetupScreen();
+        _hostSetupScreen.HostConfigured += OnHostConfigured;
+        _hostSetupScreen.BackRequested += () => { _hostSetupScreen.Hide(); _mainMenuScreen.Show(); };
+        AddChild(_hostSetupScreen);
+        _hostSetupScreen.Hide();
+
+        _serverInfoScreen = new ServerInfoScreen();
+        _serverInfoScreen.PlayRequested += OnServerInfoPlayRequested;
+        _serverInfoScreen.StopRequested += OnServerInfoStopRequested;
+        AddChild(_serverInfoScreen);
+        _serverInfoScreen.Hide();
+
+        // Remote network events
         _network.ConnectedToServer += OnConnected;
         _network.DisconnectedFromServer += OnDisconnected;
         _network.PlayerEliminated += OnPlayerEliminated;
@@ -94,29 +140,21 @@ public partial class ClientNode : Node
         _network.GameStateDeltaReceived += OnGameStateDeltaForSpectator;
         _network.GameStateFullReceived += OnGameStateFullReceived;
 
-        _loginScreen.Show();
-
+        _mainMenuScreen.Show();
         _crashReporter.CheckPendingReports();
-
-        var error = _network.Connect(ServerAddress, ServerPort);
-        if (error != Error.Ok)
-            GD.PrintErr($"[ClientNode] Failed to connect: {error}");
-        else
-            GD.Print($"[ClientNode] Connecting to {ServerAddress}:{ServerPort}");
     }
 
     public override void _Process(double delta)
     {
-        if (!_network.IsConnected() || !_authenticated || _eliminated) return;
-
-        var flags = ReadInput();
-        if (flags != InputFlags.None)
+        // Remote input loop
+        if (_gamePhase == GamePhase.InGame && _network.IsConnected() && _authenticated && !_eliminated)
         {
-            _inputSequence++;
-            _network.SendInput(new PlayerInput(
-                _localPlayerId,
-                flags,
-                _inputSequence));
+            var flags = ReadInput();
+            if (flags != InputFlags.None)
+            {
+                _inputSequence++;
+                _network.SendInput(new PlayerInput(_localPlayerId, flags, _inputSequence));
+            }
         }
     }
 
@@ -135,10 +173,130 @@ public partial class ClientNode : Node
         _network.Disconnect();
     }
 
-    private void OnPendingReportsFound(string[] paths)
+    // ── Main menu ────────────────────────────────────────────────────────────
+
+    private void OnSoloRequested()
     {
-        if (paths.Length > 0)
-            _crashReportScreen.ShowCrash(paths[0]);
+        _mainMenuScreen.Hide();
+        _soloModeScreen.Show();
+    }
+
+    private void OnSoloModeSelected(GameLogic.Shared.GameMode mode, string nickname)
+    {
+        _soloModeScreen.Hide();
+        StartLocalGame(mode, nickname);
+    }
+
+    private void OnHostRequested()
+    {
+        _mainMenuScreen.Hide();
+        _hostSetupScreen.Show();
+    }
+
+    private void OnHostConfigured(string gameName, int port, string? roomCode)
+    {
+        _hostSetupScreen.Hide();
+
+        _hostNode = new HostNode();
+        _hostNode.ServerReady += (ip, p) =>
+        {
+            _serverInfoScreen.SetInfo(ip, p, roomCode);
+            _serverInfoScreen.Show();
+        };
+        AddChild(_hostNode);
+        _hostNode.Initialize(gameName, port, roomCode);
+    }
+
+    private void OnServerInfoPlayRequested()
+    {
+        _serverInfoScreen.Hide();
+        StartRemoteConnection("127.0.0.1", ServerPort, roomCode: null);
+    }
+
+    private void OnServerInfoStopRequested()
+    {
+        _serverInfoScreen.Hide();
+        _hostNode?.QueueFree();
+        _hostNode = null;
+        _mainMenuScreen.Show();
+    }
+
+    private void OnJoinMenuRequested()
+    {
+        _mainMenuScreen.Hide();
+        _roomBrowserScreen = new RoomBrowserScreen();
+        _roomBrowserScreen.JoinRequested += OnRoomBrowserJoin;
+        _roomBrowserScreen.BackRequested += OnRoomBrowserBack;
+        AddChild(_roomBrowserScreen);
+    }
+
+    private void OnRoomBrowserJoin(string address, int port, string? roomCode)
+    {
+        _roomBrowserScreen?.QueueFree();
+        _roomBrowserScreen = null;
+        StartRemoteConnection(address, port, roomCode);
+    }
+
+    private void OnRoomBrowserBack()
+    {
+        _roomBrowserScreen?.QueueFree();
+        _roomBrowserScreen = null;
+        _mainMenuScreen.Show();
+    }
+
+    // ── Solo local ───────────────────────────────────────────────────────────
+
+    private void StartLocalGame(GameLogic.Shared.GameMode mode, string nickname)
+    {
+        _gamePhase = GamePhase.Solo;
+
+        _localGameNode = new LocalGameNode();
+        _localGameNode.PlayerEliminated += OnLocalPlayerEliminated;
+        _localGameNode.GameOver += OnLocalGameOver;
+        AddChild(_localGameNode);
+        _localGameNode.Initialize(mode, nickname);
+
+        _renderer.Initialize(_localGameNode, _hud, LocalGameNode.LocalPlayerId);
+
+        bool isTraining = mode == GameLogic.Shared.GameMode.Training;
+        if (isTraining)
+            _trainingOverlay.Show();
+    }
+
+    private void OnLocalPlayerEliminated(PlayerEliminatedMessage msg)
+    {
+        if (msg.EliminatedPlayerId == LocalGameNode.LocalPlayerId)
+        {
+            _renderer.EnterSpectatorMode();
+            _spectatorOverlay.Show();
+        }
+    }
+
+    private void OnLocalGameOver(GameOverMessage msg)
+    {
+        _gamePhase = GamePhase.GameOver;
+        _spectatorOverlay.Hide();
+        _gameOverScreen.ShowWin(LocalGameNode.LocalPlayerId, msg.WinnerPlayerId);
+
+        // Clean up local game
+        _localGameNode?.QueueFree();
+        _localGameNode = null;
+    }
+
+    // ── Remote connection ────────────────────────────────────────────────────
+
+    private void StartRemoteConnection(string address, int port, string? roomCode)
+    {
+        _pendingRoomCode = roomCode;
+        _gamePhase = GamePhase.Connecting;
+
+        _loginScreen.Show();
+
+        var error = _network.Connect(address, port);
+        if (error != Error.Ok)
+            GD.PrintErr($"[ClientNode] Failed to connect to {address}:{port}: {error}");
+        else
+            GD.Print($"[ClientNode] Connecting to {address}:{port}");
     }
 
     private void OnConnected()
@@ -154,7 +312,7 @@ public partial class ClientNode : Node
     private void OnDisconnected()
     {
         _authenticated = false;
-        _gamePhase = GamePhase.Connecting;
+        _gamePhase = GamePhase.MainMenu;
         GD.Print("[ClientNode] Disconnected from server");
     }
 
@@ -164,15 +322,13 @@ public partial class ClientNode : Node
 
         _trainingMode = true;
         string guestNick = $"Joueur{_localPlayerId}";
-        _network.SendJoinTraining(new JoinTrainingRequest(guestNick));
-        // Authenticated state is set once the server responds with GameStateFull
+        _network.SendJoinTraining(new JoinTrainingRequest(guestNick, _pendingRoomCode));
     }
 
     private void OnGameStateFullReceived(GameStateFull state)
     {
         if (!_trainingMode || _authenticated) return;
 
-        // Training mode: server accepted the JoinTraining — consider us in-game
         _authenticated = true;
         _gamePhase = GamePhase.InGame;
         _loginScreen.Hide();
@@ -182,12 +338,11 @@ public partial class ClientNode : Node
 
     private void OnJoinRankedRequested()
     {
-        // Disconnect and reconnect without training mode so the normal login screen appears
         _trainingMode = false;
         _authenticated = false;
         _eliminated = false;
         _spectating = false;
-        _gamePhase = GamePhase.Connecting;
+        _gamePhase = GamePhase.MainMenu;
         _trainingOverlay.Hide();
         _network.Disconnect();
         _loginScreen.Show();
@@ -204,7 +359,7 @@ public partial class ClientNode : Node
     private void OnLoginRequested(string username, string password)
     {
         if (!_network.IsConnected()) return;
-        _network.SendLogin(new LoginRequest(username, password));
+        _network.SendLogin(new LoginRequest(username, password, _pendingRoomCode));
     }
 
     private void OnRegisterRequested(string username, string password)
@@ -232,9 +387,7 @@ public partial class ClientNode : Node
     private void OnRegisterResponse(RegisterResponse response)
     {
         if (!response.Success)
-        {
             _loginScreen.ShowError(response.ErrorMessage);
-        }
     }
 
     private void OnLeaderboardResponse(LeaderboardResponse response)
@@ -271,21 +424,20 @@ public partial class ClientNode : Node
         _gameOverScreen.ShowWin(_localPlayerId, msg.WinnerPlayerId);
     }
 
+    private void OnPendingReportsFound(string[] paths)
+    {
+        if (paths.Length > 0)
+            _crashReportScreen.ShowCrash(paths[0]);
+    }
+
     private static InputFlags ReadInput()
     {
         InputFlags flags = InputFlags.None;
-
-        if (Input.IsActionPressed("move_forward"))
-            flags |= InputFlags.MoveForward;
-        if (Input.IsActionPressed("move_backward"))
-            flags |= InputFlags.MoveBackward;
-        if (Input.IsActionPressed("rotate_left"))
-            flags |= InputFlags.RotateLeft;
-        if (Input.IsActionPressed("rotate_right"))
-            flags |= InputFlags.RotateRight;
-        if (Input.IsActionPressed("fire"))
-            flags |= InputFlags.Fire;
-
+        if (Input.IsActionPressed("move_forward")) flags |= InputFlags.MoveForward;
+        if (Input.IsActionPressed("move_backward")) flags |= InputFlags.MoveBackward;
+        if (Input.IsActionPressed("rotate_left")) flags |= InputFlags.RotateLeft;
+        if (Input.IsActionPressed("rotate_right")) flags |= InputFlags.RotateRight;
+        if (Input.IsActionPressed("fire")) flags |= InputFlags.Fire;
         return flags;
     }
 }

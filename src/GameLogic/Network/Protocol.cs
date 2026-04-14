@@ -104,7 +104,8 @@ public record ZoneUpdateMessage(
 [MessagePackObject]
 public record LoginRequest(
     [property: Key(0)] string Username,
-    [property: Key(1)] string Password
+    [property: Key(1)] string Password,
+    [property: Key(2)] string? RoomCode = null
 );
 
 [MessagePackObject]
@@ -146,5 +147,6 @@ public record LeaderboardResponse(
 
 [MessagePackObject]
 public record JoinTrainingRequest(
-    [property: Key(0)] string Nickname
+    [property: Key(0)] string Nickname,
+    [property: Key(1)] string? RoomCode = null
 );

@@ -14,7 +14,7 @@ public partial class GameRenderer : Node2D
     private readonly Dictionary<int, BulletNode> _bulletNodes = new();
     private readonly Dictionary<int, int> _tankPrevHealth = new();
 
-    private Network.ClientNetworkManager _network = null!;
+    private Network.IGameStateProvider _network = null!;
     private HudNode _hud = null!;
     private ZoneNode _zoneNode = null!;
     private ControlPointsNode _controlPointsNode = null!;
@@ -27,7 +27,7 @@ public partial class GameRenderer : Node2D
     public event Action? TankHit;
     public event Action? TankEliminated;
 
-    public void Initialize(Network.ClientNetworkManager network, HudNode hud, int localPlayerId)
+    public void Initialize(Network.IGameStateProvider network, HudNode hud, int localPlayerId)
     {
         _network = network;
         _hud = hud;

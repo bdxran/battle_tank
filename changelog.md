@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 11 — Solo local & découverte LAN)
+
+- `Godot/Network/IGameStateProvider.cs` — interface découplant `GameRenderer` de `ClientNetworkManager` ; implémentée par `ClientNetworkManager` (réseau) et `LocalGameNode` (offline)
+- `Godot/Nodes/LocalGameNode.cs` — mode solo offline : instancie `GameRoom` + bots pour tous les modes de jeu (Training, BattleRoyale, Teams, Deathmatch, CaptureZone), lit l'input clavier directement, alimente `GameRenderer` à 20 TPS via snapshots locaux
+- `Godot/UI/MainMenuScreen.cs` — écran d'accueil avec trois entrées : « Jouer solo », « Héberger une partie », « Rejoindre une partie » ; remplace la connexion automatique au démarrage
+- `Godot/UI/SoloModeScreen.cs` — sélecteur de mode pour le jeu solo ; liste tous les modes avec champ pseudo
+- `Godot/Nodes/HostNode.cs` — hébergement in-process : démarre `ServerNetworkManager` + `GameRoomNode` dans le même process, lance `LanAnnouncer`, fire `ServerReady` pour connexion loopback client
+- `Godot/UI/HostSetupScreen.cs` — configuration de la partie hébergée (nom, port, code optionnel)
+- `Godot/UI/ServerInfoScreen.cs` — affiche les infos de connexion (IP, port, code) à partager avec les autres joueurs
+- `Godot/Network/LanAnnouncer.cs` — broadcast UDP toutes les 2 s sur le port 4243 (payload JSON : nom, port, mode, joueurs, hasCode)
+- `Godot/Network/LanDiscovery.cs` — écoute les broadcasts UDP LAN, maintient une liste de serveurs avec TTL 6 s, fire `ServerListChanged`
+- `Godot/Network/ServerAnnouncement.cs` — record partagé entre `LanAnnouncer` et `LanDiscovery`
+- `Godot/UI/RoomBrowserScreen.cs` — browser de parties LAN + saisie IP manuelle ; gère le prompt de code si la room est protégée
+- `Godot/UI/RoomPasswordScreen.cs` — saisie du code de room avant connexion
+
+### Changed
+
+- `Godot/Renderer/GameRenderer.cs` — `Initialize()` accepte `IGameStateProvider` au lieu de `ClientNetworkManager` (rétrocompatible)
+- `Godot/Network/ClientNetworkManager.cs` — implémente `IGameStateProvider`
+- `Godot/Network/ServerNetworkManager.cs` — `JoinTrainingReceived` passe désormais `JoinTrainingRequest` complet (au lieu du nickname seul) pour permettre la vérification du code de room
+- `GameLogic/Network/Protocol.cs` — `LoginRequest` et `JoinTrainingRequest` ajoutent `string? RoomCode = null` (Key 2 / Key 1, rétrocompatible MessagePack)
+- `Godot/Nodes/GameRoomNode.cs` — propriété `RoomCode` ; vérifie le code à la connexion (`OnLoginReceived`, `OnJoinTrainingReceived`) et refuse avec `"Code incorrect"` si invalide
+- `Godot/Nodes/ClientNode.cs` — refactorisé pour le nouveau flux de navigation : `MainMenuScreen` → solo / hébergement / rejoindre ; `_pendingRoomCode` injecté dans `LoginRequest` et `JoinTrainingRequest`
+
 ## [0.0.9] — 2026-04-14
 
 ### Added (Phase 9 — Solo & IA ennemie)

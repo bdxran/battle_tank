@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `GameLogic/Persistence/Models/` — entités EF Core : `PlayerAccount` (username, hash bcrypt, avatarSeed, createdAt), `PlayerStats` (kills, deaths, wins, gamesPlayed, playtimeSeconds par mode), `GameRecord` (historique des parties)
+- `GameLogic/Persistence/IPlayerRepository` — interface de persistance : find, create, updateStats, getStats
+- `GameLogic/Persistence/ILeaderboardService` — interface leaderboard par mode
+- `Godot/Persistence/BattleTankDbContext` — DbContext EF Core SQLite, `EnsureCreated()` au démarrage serveur
+- `Godot/Persistence/PlayerRepository` — implémentation EF Core : bcrypt verify/hash, stats incrémentales, historique des parties
+- `Godot/Persistence/LeaderboardService` — classement par mode (wins > kills) via LINQ/EF Core
+- `GameLogic/Network/Protocol.cs` — nouveaux messages : `LoginRequest/Response`, `RegisterRequest/Response`, `LeaderboardRequest/Response`, `LeaderboardEntryMessage`
+- `Godot/Network/ServerNetworkManager` — RPC `ReceiveReliableMessage` (Reliable) pour auth ; événements `LoginReceived`, `RegisterReceived`, `LeaderboardRequested` ; `SendToPlayerReliable`
+- `Godot/Network/ClientNetworkManager` — RPC `ReceiveReliableMessage` (Reliable) pour réponses auth ; `SendLogin`, `SendRegister`, `RequestLeaderboard` ; événements `LoginResponseReceived`, `RegisterResponseReceived`, `LeaderboardResponseReceived`
+- `Godot/Nodes/GameRoomNode` — auth flow pre-game (`_pendingAuth` / `_authenticated`) : les peers attendent `LoginRequest`/`RegisterRequest` avant d'entrer en salle ; sauvegarde asynchrone des stats à la fin de partie (capture snapshot avant `Reset()`)
+- `Godot/Nodes/ServerNode` — initialisation `BattleTankDbContext` + injection `IPlayerRepository` / `ILeaderboardService` dans `GameRoomNode` ; export `DbPath`
+- `Godot/Nodes/ClientNode` — gestion login/register, stockage `_accountId`/`_nickname`, input bloqué jusqu'à auth
+- `Godot/UI/LoginScreen` — écran login/register procédural (CanvasLayer) : champs username/password, boutons Login/Register, label de statut/erreur
+- `GameLogic/Rules/GameRoom` — tracking `_playerAccountIds`, `_gameStartTick`, propriétés `GameDurationSeconds`, `PlayerKills`, méthodes `SetPlayerAccountId`/`GetPlayerAccountId`
+
 - `GameLogic/Shared/Types.cs` — `GameMode` enum (BattleRoyale/Teams/Deathmatch/CaptureZone), `ControlPointSnapshot`, `PlayerInfo.TeamId`
 - `GameLogic/Shared/Constants.cs` — constantes deathmatch (`DeathmatchDurationTicks`, `DeathmatchRespawnDelayTicks`), capture de zone (`CaptureZoneScoreToWin`, `CaptureZoneDurationTicks`, `ControlPointRadius`, `CaptureRatePerSecond`)
 - `GameLogic/Entities/TankEntity.cs` — `TeamId`, `IsEliminated`, `Respawn(Vector2 position)` (réinitialise santé, position, vitesse)

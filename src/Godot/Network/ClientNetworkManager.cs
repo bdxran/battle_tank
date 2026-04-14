@@ -2,6 +2,7 @@ using System;
 using Godot;
 using Microsoft.Extensions.Logging;
 using BattleTank.GameLogic.Network;
+using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.Godot.Network;
 
@@ -18,6 +19,9 @@ public partial class ClientNetworkManager : Node
     public event Action<GameStateDelta>? GameStateDeltaReceived;
     public event Action<PlayerEliminatedMessage>? PlayerEliminated;
     public event Action<GameOverMessage>? GameOver;
+    public event Action<LoginResponse>? LoginResponseReceived;
+    public event Action<RegisterResponse>? RegisterResponseReceived;
+    public event Action<LeaderboardResponse>? LeaderboardResponseReceived;
 
     public void Initialize(ILogger<ClientNetworkManager> logger)
     {
@@ -55,6 +59,24 @@ public partial class ClientNetworkManager : Node
         var data = GameStateSerializer.Serialize(input);
         var payload = BuildPayload(MessageType.PlayerInput, data);
         RpcId(1, MethodName.ReceiveMessage, payload);
+    }
+
+    public void SendLogin(LoginRequest request)
+    {
+        var payload = BuildPayload(MessageType.LoginRequest, GameStateSerializer.Serialize(request));
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
+    public void SendRegister(RegisterRequest request)
+    {
+        var payload = BuildPayload(MessageType.RegisterRequest, GameStateSerializer.Serialize(request));
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
+    public void RequestLeaderboard(GameMode mode)
+    {
+        var payload = BuildPayload(MessageType.LeaderboardRequest, [(byte)mode]);
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
     }
 
     public bool IsConnected() => _connected;
@@ -114,6 +136,45 @@ public partial class ClientNetworkManager : Node
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to deserialize message type {Type}", message!.Type);
+        }
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.Authority, CallLocal = false, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveReliableMessage(byte[] payload)
+    {
+        if (!TryParseMessage(payload, out var message))
+        {
+            _logger.LogWarning("Received invalid reliable message from server");
+            return;
+        }
+
+        try
+        {
+            switch (message!.Type)
+            {
+                case MessageType.LoginResponse:
+                    var loginResp = GameStateSerializer.Deserialize<LoginResponse>(message.Payload);
+                    LoginResponseReceived?.Invoke(loginResp);
+                    break;
+
+                case MessageType.RegisterResponse:
+                    var regResp = GameStateSerializer.Deserialize<RegisterResponse>(message.Payload);
+                    RegisterResponseReceived?.Invoke(regResp);
+                    break;
+
+                case MessageType.LeaderboardResponse:
+                    var lbResp = GameStateSerializer.Deserialize<LeaderboardResponse>(message.Payload);
+                    LeaderboardResponseReceived?.Invoke(lbResp);
+                    break;
+
+                default:
+                    _logger.LogDebug("Unhandled reliable message type {Type}", message.Type);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize reliable message type {Type}", message!.Type);
         }
     }
 

@@ -23,9 +23,13 @@ public partial class ClientNode : Node
     private GameRenderer _renderer = null!;
     private HudNode _hud = null!;
     private GameOverScreen _gameOverScreen = null!;
+    private LoginScreen _loginScreen = null!;
     private int _localPlayerId;
+    private int _accountId = -1;
+    private string _nickname = "";
     private uint _inputSequence;
     private bool _eliminated;
+    private bool _authenticated;
 
     public override void _Ready()
     {
@@ -44,10 +48,20 @@ public partial class ClientNode : Node
         _renderer = new GameRenderer();
         AddChild(_renderer);
 
+        _loginScreen = new LoginScreen();
+        _loginScreen.LoginRequested += OnLoginRequested;
+        _loginScreen.RegisterRequested += OnRegisterRequested;
+        AddChild(_loginScreen);
+
         _network.ConnectedToServer += OnConnected;
         _network.DisconnectedFromServer += OnDisconnected;
         _network.PlayerEliminated += OnPlayerEliminated;
         _network.GameOver += OnGameOver;
+        _network.LoginResponseReceived += OnLoginResponse;
+        _network.RegisterResponseReceived += OnRegisterResponse;
+        _network.LeaderboardResponseReceived += OnLeaderboardResponse;
+
+        _loginScreen.Show();
 
         var error = _network.Connect(ServerAddress, ServerPort);
         if (error != Error.Ok)
@@ -58,7 +72,7 @@ public partial class ClientNode : Node
 
     public override void _Process(double delta)
     {
-        if (!_network.IsConnected() || _eliminated) return;
+        if (!_network.IsConnected() || !_authenticated || _eliminated) return;
 
         var flags = ReadInput();
         if (flags != InputFlags.None)
@@ -78,6 +92,9 @@ public partial class ClientNode : Node
         _network.DisconnectedFromServer -= OnDisconnected;
         _network.PlayerEliminated -= OnPlayerEliminated;
         _network.GameOver -= OnGameOver;
+        _network.LoginResponseReceived -= OnLoginResponse;
+        _network.RegisterResponseReceived -= OnRegisterResponse;
+        _network.LeaderboardResponseReceived -= OnLeaderboardResponse;
         _network.Disconnect();
     }
 
@@ -86,11 +103,53 @@ public partial class ClientNode : Node
         _localPlayerId = Multiplayer.GetUniqueId();
         GD.Print($"[ClientNode] Connected as peer {_localPlayerId}");
         _renderer.Initialize(_network, _hud, _localPlayerId);
+        _loginScreen.OnConnected();
     }
 
     private void OnDisconnected()
     {
+        _authenticated = false;
         GD.Print("[ClientNode] Disconnected from server");
+    }
+
+    private void OnLoginRequested(string username, string password)
+    {
+        if (!_network.IsConnected()) return;
+        _network.SendLogin(new LoginRequest(username, password));
+    }
+
+    private void OnRegisterRequested(string username, string password)
+    {
+        if (!_network.IsConnected()) return;
+        _network.SendRegister(new RegisterRequest(username, password));
+    }
+
+    private void OnLoginResponse(LoginResponse response)
+    {
+        if (!response.Success)
+        {
+            _loginScreen.ShowError(response.ErrorMessage);
+            return;
+        }
+
+        _accountId = response.AccountId;
+        _nickname = response.Nickname;
+        _authenticated = true;
+        _loginScreen.Hide();
+        GD.Print($"[ClientNode] Authenticated as {_nickname} (accountId: {_accountId})");
+    }
+
+    private void OnRegisterResponse(RegisterResponse response)
+    {
+        if (!response.Success)
+        {
+            _loginScreen.ShowError(response.ErrorMessage);
+        }
+    }
+
+    private void OnLeaderboardResponse(LeaderboardResponse response)
+    {
+        GD.Print($"[ClientNode] Leaderboard received for mode {response.Mode} ({response.Entries.Length} entries)");
     }
 
     private void OnPlayerEliminated(PlayerEliminatedMessage msg)

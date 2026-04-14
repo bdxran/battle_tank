@@ -62,12 +62,12 @@
 
 > Objectif : Suivre ses performances dans le temps.
 
-- [ ] Système d'authentification (inscription / connexion)
-- [ ] Backend persistance (base de données — voir issue #003)
-- [ ] Profil joueur (pseudo, avatar généré, date d'inscription)
-- [ ] Stats persistées : K/D, victoires, parties jouées, temps de jeu
-- [ ] Historique des parties (date, mode, résultat, kills)
-- [ ] Classement global (leaderboard par mode)
+- [x] Système d'authentification (inscription / connexion)
+- [x] Backend persistance (SQLite via EF Core — issue #003)
+- [x] Profil joueur (pseudo, avatar généré, date d'inscription)
+- [x] Stats persistées : K/D, victoires, parties jouées, temps de jeu
+- [x] Historique des parties (date, mode, résultat, kills)
+- [x] Classement global (leaderboard par mode)
 
 ## Phase 5 — Qualité & Polish
 

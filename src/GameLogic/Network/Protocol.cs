@@ -14,6 +14,12 @@ public enum MessageType : byte
     GameOver = 0x22,
     Countdown = 0x23,
     ZoneUpdate = 0x30,
+    LoginRequest = 0x40,
+    LoginResponse = 0x41,
+    RegisterRequest = 0x42,
+    RegisterResponse = 0x43,
+    LeaderboardRequest = 0x44,
+    LeaderboardResponse = 0x45,
     Error = 0xFF,
 }
 
@@ -92,4 +98,47 @@ public record ZoneUpdateMessage(
     [property: Key(1)] float CenterY,
     [property: Key(2)] float Radius,
     [property: Key(3)] float DamagePerSecond
+);
+
+[MessagePackObject]
+public record LoginRequest(
+    [property: Key(0)] string Username,
+    [property: Key(1)] string Password
+);
+
+[MessagePackObject]
+public record LoginResponse(
+    [property: Key(0)] bool Success,
+    [property: Key(1)] int AccountId,
+    [property: Key(2)] string Nickname,
+    [property: Key(3)] string AvatarSeed,
+    [property: Key(4)] string ErrorMessage = ""
+);
+
+[MessagePackObject]
+public record RegisterRequest(
+    [property: Key(0)] string Username,
+    [property: Key(1)] string Password
+);
+
+[MessagePackObject]
+public record RegisterResponse(
+    [property: Key(0)] bool Success,
+    [property: Key(1)] int AccountId,
+    [property: Key(2)] string ErrorMessage = ""
+);
+
+[MessagePackObject]
+public record LeaderboardEntryMessage(
+    [property: Key(0)] int AccountId,
+    [property: Key(1)] string Username,
+    [property: Key(2)] int Wins,
+    [property: Key(3)] int Kills,
+    [property: Key(4)] int GamesPlayed
+);
+
+[MessagePackObject]
+public record LeaderboardResponse(
+    [property: Key(0)] string Mode,
+    [property: Key(1)] LeaderboardEntryMessage[] Entries
 );

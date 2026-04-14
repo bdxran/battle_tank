@@ -1,6 +1,10 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Godot;
 using Microsoft.Extensions.Logging;
 using BattleTank.GameLogic.Network;
+using BattleTank.GameLogic.Persistence;
 using BattleTank.GameLogic.Rules;
 using BattleTank.GameLogic.Shared;
 
@@ -13,17 +17,34 @@ public partial class GameRoomNode : Node
     private ILogger<GameRoomNode> _logger = null!;
     private GameRoom _room = null!;
     private Network.ServerNetworkManager _network = null!;
+    private IPlayerRepository _repository = null!;
+    private ILeaderboardService _leaderboard = null!;
     private float _accumulator;
 
-    public void Initialize(Network.ServerNetworkManager network, ILogger<GameRoomNode> logger, ILogger<GameRoom> roomLogger)
+    // Tracks peers that connected but haven't authenticated yet
+    private readonly HashSet<int> _pendingAuth = new();
+    // Maps peerId → (accountId, nickname)
+    private readonly Dictionary<int, (int AccountId, string Nickname)> _authenticated = new();
+
+    public void Initialize(
+        Network.ServerNetworkManager network,
+        ILogger<GameRoomNode> logger,
+        ILogger<GameRoom> roomLogger,
+        IPlayerRepository repository,
+        ILeaderboardService leaderboard)
     {
         _logger = logger;
         _network = network;
+        _repository = repository;
+        _leaderboard = leaderboard;
         _room = new GameRoom(roomLogger);
 
         _network.PlayerConnected += OnPlayerConnected;
         _network.PlayerDisconnected += OnPlayerDisconnected;
         _network.InputReceived += OnInputReceived;
+        _network.LoginReceived += OnLoginReceived;
+        _network.RegisterReceived += OnRegisterReceived;
+        _network.LeaderboardRequested += OnLeaderboardRequested;
     }
 
     public override void _Process(double delta)
@@ -44,30 +65,21 @@ public partial class GameRoomNode : Node
         _network.PlayerConnected -= OnPlayerConnected;
         _network.PlayerDisconnected -= OnPlayerDisconnected;
         _network.InputReceived -= OnInputReceived;
+        _network.LoginReceived -= OnLoginReceived;
+        _network.RegisterReceived -= OnRegisterReceived;
+        _network.LeaderboardRequested -= OnLeaderboardRequested;
     }
 
     private void OnPlayerConnected(int peerId)
     {
-        var result = _room.AddPlayer(peerId);
-        if (!result.IsSuccess)
-        {
-            _logger.LogWarning("Could not add player {PeerId}: {Error}", peerId, result.Error);
-            return;
-        }
-
-        var fullState = _room.GetFullState();
-        _network.SendToPlayer(peerId, new NetworkMessage(
-            MessageType.GameStateFull,
-            GameStateSerializer.Serialize(fullState)));
-
-        var joined = new PlayerJoinedMessage(peerId, $"Player{peerId}");
-        _network.Broadcast(new NetworkMessage(
-            MessageType.PlayerJoined,
-            GameStateSerializer.Serialize(joined)));
+        _pendingAuth.Add(peerId);
+        _logger.LogInformation("Peer {PeerId} connected, awaiting authentication", peerId);
     }
 
     private void OnPlayerDisconnected(int peerId)
     {
+        _pendingAuth.Remove(peerId);
+        _authenticated.Remove(peerId);
         _room.RemovePlayer(peerId);
 
         if (_room.Phase == GamePhase.GameOver)
@@ -76,7 +88,151 @@ public partial class GameRoomNode : Node
 
     private void OnInputReceived(int peerId, PlayerInput input)
     {
+        if (!_authenticated.ContainsKey(peerId)) return;
         _room.ApplyInput(peerId, input);
+    }
+
+    private void OnLoginReceived(int peerId, LoginRequest request)
+    {
+        _ = HandleLoginAsync(peerId, request);
+    }
+
+    private void OnRegisterReceived(int peerId, RegisterRequest request)
+    {
+        _ = HandleRegisterAsync(peerId, request);
+    }
+
+    private void OnLeaderboardRequested(int peerId, GameMode mode)
+    {
+        _ = HandleLeaderboardRequestAsync(peerId, mode);
+    }
+
+    private async Task HandleLoginAsync(int peerId, LoginRequest request)
+    {
+        try
+        {
+            var account = await _repository.FindByUsernameAsync(request.Username);
+            if (account == null || !BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash))
+            {
+                var fail = new LoginResponse(false, -1, "", "", "Invalid username or password");
+                _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                    MessageType.LoginResponse,
+                    GameStateSerializer.Serialize(fail)));
+                _logger.LogWarning("Login failed for peer {PeerId} (username: {Username})", peerId, request.Username);
+                return;
+            }
+
+            AuthenticatePeer(peerId, account.AccountId, account.Username, account.AvatarSeed);
+
+            var response = new LoginResponse(true, account.AccountId, account.Username, account.AvatarSeed);
+            _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                MessageType.LoginResponse,
+                GameStateSerializer.Serialize(response)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during login for peer {PeerId}", peerId);
+        }
+    }
+
+    private async Task HandleRegisterAsync(int peerId, RegisterRequest request)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                SendRegisterError(peerId, "Username and password are required");
+                return;
+            }
+
+            var existing = await _repository.FindByUsernameAsync(request.Username);
+            if (existing != null)
+            {
+                SendRegisterError(peerId, "Username already taken");
+                return;
+            }
+
+            var hash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+            var avatarSeed = request.Username.GetHashCode().ToString("x8");
+            var account = await _repository.CreateAccountAsync(request.Username, hash, avatarSeed);
+
+            var response = new RegisterResponse(true, account.AccountId);
+            _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                MessageType.RegisterResponse,
+                GameStateSerializer.Serialize(response)));
+
+            AuthenticatePeer(peerId, account.AccountId, account.Username, account.AvatarSeed);
+
+            var loginResponse = new LoginResponse(true, account.AccountId, account.Username, account.AvatarSeed);
+            _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                MessageType.LoginResponse,
+                GameStateSerializer.Serialize(loginResponse)));
+
+            _logger.LogInformation("Registered new account {Username} (accountId: {AccountId})", account.Username, account.AccountId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error during registration for peer {PeerId}", peerId);
+            SendRegisterError(peerId, "Registration failed");
+        }
+    }
+
+    private async Task HandleLeaderboardRequestAsync(int peerId, GameMode mode)
+    {
+        try
+        {
+            var entries = await _leaderboard.GetLeaderboardAsync(mode);
+            var msgEntries = new LeaderboardEntryMessage[entries.Length];
+            for (int i = 0; i < entries.Length; i++)
+            {
+                var e = entries[i];
+                msgEntries[i] = new LeaderboardEntryMessage(e.AccountId, e.Username, e.Wins, e.Kills, e.GamesPlayed);
+            }
+
+            var response = new LeaderboardResponse(mode.ToString(), msgEntries);
+            _network.SendToPlayerReliable(peerId, new NetworkMessage(
+                MessageType.LeaderboardResponse,
+                GameStateSerializer.Serialize(response)));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching leaderboard for peer {PeerId}", peerId);
+        }
+    }
+
+    private void AuthenticatePeer(int peerId, int accountId, string nickname, string avatarSeed)
+    {
+        _pendingAuth.Remove(peerId);
+        _authenticated[peerId] = (accountId, nickname);
+
+        var result = _room.AddPlayer(peerId, nickname);
+        if (!result.IsSuccess)
+        {
+            _logger.LogWarning("Could not add authenticated player {PeerId}: {Error}", peerId, result.Error);
+            return;
+        }
+
+        _room.SetPlayerAccountId(peerId, accountId);
+
+        var fullState = _room.GetFullState();
+        _network.SendToPlayer(peerId, new NetworkMessage(
+            MessageType.GameStateFull,
+            GameStateSerializer.Serialize(fullState)));
+
+        var joined = new PlayerJoinedMessage(peerId, nickname);
+        _network.Broadcast(new NetworkMessage(
+            MessageType.PlayerJoined,
+            GameStateSerializer.Serialize(joined)));
+
+        _logger.LogInformation("Player {PeerId} authenticated as {Nickname} (accountId: {AccountId})", peerId, nickname, accountId);
+    }
+
+    private void SendRegisterError(int peerId, string message)
+    {
+        var response = new RegisterResponse(false, -1, message);
+        _network.SendToPlayerReliable(peerId, new NetworkMessage(
+            MessageType.RegisterResponse,
+            GameStateSerializer.Serialize(response)));
     }
 
     private void DoTick()
@@ -95,7 +251,9 @@ public partial class GameRoomNode : Node
         if (_room.Phase == GamePhase.GameOver)
         {
             BroadcastGameOver();
+            var snapshot = CaptureGameResultSnapshot();
             _room.Reset();
+            _ = SaveGameResultsAsync(snapshot);
             return;
         }
 
@@ -112,5 +270,48 @@ public partial class GameRoomNode : Node
             GameStateSerializer.Serialize(msg)));
 
         _logger.LogInformation("Game over broadcast. Winner: {WinnerId}", _room.WinnerId);
+    }
+
+    private readonly record struct PlayerResult(int AccountId, bool Won, int Kills);
+    private readonly record struct GameResultSnapshot(GameMode Mode, int DurationSeconds, PlayerResult[] Results);
+
+    private GameResultSnapshot CaptureGameResultSnapshot()
+    {
+        var mode = _room.GetFullState().Mode;
+        var duration = _room.GameDurationSeconds;
+        var winnerId = _room.WinnerId;
+        var winnerTeamId = _room.WinnerTeamId;
+        var kills = _room.PlayerKills;
+
+        var results = new System.Collections.Generic.List<PlayerResult>();
+        foreach (var (peerId, _) in _authenticated)
+        {
+            var accountId = _room.GetPlayerAccountId(peerId);
+            if (accountId < 0) continue;
+
+            bool won = winnerTeamId >= 0
+                ? _room.GetPlayerAccountId(winnerId) >= 0 // team win: check via winnerId peer's team
+                : peerId == winnerId;
+            int playerKills = kills.TryGetValue(peerId, out int k) ? k : 0;
+            results.Add(new PlayerResult(accountId, won, playerKills));
+        }
+
+        return new GameResultSnapshot(mode, duration, results.ToArray());
+    }
+
+    private async Task SaveGameResultsAsync(GameResultSnapshot snapshot)
+    {
+        foreach (var result in snapshot.Results)
+        {
+            try
+            {
+                await _repository.UpdateStatsAsync(result.AccountId, snapshot.Mode, result.Won, result.Kills, snapshot.DurationSeconds);
+                _logger.LogInformation("Stats saved for account {AccountId} — won={Won} kills={Kills}", result.AccountId, result.Won, result.Kills);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save stats for account {AccountId}", result.AccountId);
+            }
+        }
     }
 }

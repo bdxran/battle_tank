@@ -15,6 +15,9 @@ public partial class ServerNetworkManager : Node
     public event Action<int>? PlayerConnected;
     public event Action<int>? PlayerDisconnected;
     public event Action<int, PlayerInput>? InputReceived;
+    public event Action<int, LoginRequest>? LoginReceived;
+    public event Action<int, RegisterRequest>? RegisterReceived;
+    public event Action<int, GameMode>? LeaderboardRequested;
 
     public void Initialize(ILogger<ServerNetworkManager> logger)
     {
@@ -51,6 +54,12 @@ public partial class ServerNetworkManager : Node
     {
         var payload = BuildPayload(message);
         RpcId(peerId, MethodName.ReceiveMessage, payload);
+    }
+
+    public void SendToPlayerReliable(int peerId, NetworkMessage message)
+    {
+        var payload = BuildPayload(message);
+        RpcId(peerId, MethodName.ReceiveReliableMessage, payload);
     }
 
     public void Broadcast(NetworkMessage message)
@@ -94,6 +103,46 @@ public partial class ServerNetworkManager : Node
             {
                 _logger.LogWarning(ex, "Failed to deserialize PlayerInput from {PlayerId}", senderId);
             }
+        }
+    }
+
+    [Rpc(MultiplayerApi.RpcMode.AnyPeer, CallLocal = false, TransferMode = MultiplayerPeer.TransferModeEnum.Reliable)]
+    private void ReceiveReliableMessage(byte[] payload)
+    {
+        int senderId = Multiplayer.GetRemoteSenderId();
+        if (!TryParseMessage(payload, out var message))
+        {
+            _logger.LogWarning("Invalid reliable message from player {PlayerId}", senderId);
+            return;
+        }
+
+        try
+        {
+            switch (message!.Type)
+            {
+                case MessageType.LoginRequest:
+                    var login = GameStateSerializer.Deserialize<LoginRequest>(message.Payload);
+                    LoginReceived?.Invoke(senderId, login);
+                    break;
+
+                case MessageType.RegisterRequest:
+                    var register = GameStateSerializer.Deserialize<RegisterRequest>(message.Payload);
+                    RegisterReceived?.Invoke(senderId, register);
+                    break;
+
+                case MessageType.LeaderboardRequest:
+                    var mode = (GameMode)message.Payload[0];
+                    LeaderboardRequested?.Invoke(senderId, mode);
+                    break;
+
+                default:
+                    _logger.LogDebug("Unhandled reliable message type {Type} from {PlayerId}", message.Type, senderId);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to deserialize reliable message type {Type} from {PlayerId}", message!.Type, senderId);
         }
     }
 

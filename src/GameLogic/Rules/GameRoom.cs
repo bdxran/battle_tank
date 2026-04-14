@@ -24,6 +24,7 @@ public class GameRoom
     private readonly Dictionary<int, TankEntity> _tanks;
     private readonly Dictionary<int, string> _playerNicknames;
     private readonly Dictionary<int, int> _playerKills;
+    private readonly Dictionary<int, int> _playerAccountIds;
     private readonly Dictionary<int, int> _playerTeams;
     private readonly Dictionary<int, int> _teamScores;
     private readonly Dictionary<int, InputFlags> _inputBuffer;
@@ -40,6 +41,7 @@ public class GameRoom
     private int _nextPowerupId;
     private uint _currentTick;
     private uint _countdownStartTick;
+    private uint _gameStartTick;
     private uint _lastPowerupSpawnTick;
     private GamePhase _phase;
 
@@ -49,7 +51,9 @@ public class GameRoom
     public int WinnerId { get; private set; } = -1;
     public int WinnerTeamId { get; private set; } = -1;
     public int CountdownSecondsRemaining { get; private set; }
+    public int GameDurationSeconds => (int)((_currentTick - _gameStartTick) / Constants.TickRate);
     public IReadOnlyDictionary<int, string> PlayerNicknames => _playerNicknames;
+    public IReadOnlyDictionary<int, int> PlayerKills => _playerKills;
     public IReadOnlyDictionary<int, int> TeamScores => _teamScores;
 
     public GameRoom(ILogger<GameRoom> logger) : this(logger, new BattleRoyaleRules()) { }
@@ -61,6 +65,7 @@ public class GameRoom
         _tanks = new Dictionary<int, TankEntity>();
         _playerNicknames = new Dictionary<int, string>();
         _playerKills = new Dictionary<int, int>();
+        _playerAccountIds = new Dictionary<int, int>();
         _playerTeams = new Dictionary<int, int>();
         _teamScores = new Dictionary<int, int>();
         _inputBuffer = new Dictionary<int, InputFlags>();
@@ -82,6 +87,12 @@ public class GameRoom
     }
 
     public PlayerInfo[] GetLeaderboard() => _rules.GetLeaderboard(_state);
+
+    public void SetPlayerAccountId(int playerId, int accountId)
+        => _playerAccountIds[playerId] = accountId;
+
+    public int GetPlayerAccountId(int playerId)
+        => _playerAccountIds.TryGetValue(playerId, out int id) ? id : -1;
 
     public Result<TankEntity> AddPlayer(int playerId, string nickname = "")
     {
@@ -121,6 +132,7 @@ public class GameRoom
 
         _playerNicknames.Remove(playerId);
         _playerKills.Remove(playerId);
+        _playerAccountIds.Remove(playerId);
         _playerTeams.Remove(playerId);
         _inputBuffer.Remove(playerId);
         _lastInputSeq.Remove(playerId);
@@ -156,6 +168,7 @@ public class GameRoom
             if (ticksElapsed >= (uint)Constants.LobbyCountdownTicks)
             {
                 _phase = GamePhase.InProgress;
+                _gameStartTick = _currentTick;
                 _logger.LogInformation("Lobby countdown finished, game started with {Count} players", _tanks.Count);
             }
             return;
@@ -246,6 +259,7 @@ public class GameRoom
         _tanks.Clear();
         _playerNicknames.Clear();
         _playerKills.Clear();
+        _playerAccountIds.Clear();
         _playerTeams.Clear();
         _teamScores.Clear();
         _inputBuffer.Clear();
@@ -261,6 +275,7 @@ public class GameRoom
         _nextPowerupId = 0;
         _currentTick = 0;
         _countdownStartTick = 0;
+        _gameStartTick = 0;
         _lastPowerupSpawnTick = 0;
         CountdownSecondsRemaining = 0;
         _phase = GamePhase.WaitingForPlayers;

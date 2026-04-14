@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using BattleTank.GameLogic.Rules;
 using BattleTank.Godot.Network;
+using BattleTank.Godot.Persistence;
 
 namespace BattleTank.Godot.Nodes;
 
@@ -14,33 +15,45 @@ public partial class ServerNode : Node
 {
     [Export] public int Port { get; set; } = 4242;
     [Export] public int MaxClients { get; set; } = 10;
+    [Export] public string DbPath { get; set; } = "battle_tank.db";
 
     private ServerNetworkManager _network = null!;
     private GameRoomNode _room = null!;
+    private BattleTankDbContext _db = null!;
 
     public override void _Ready()
     {
         var loggerFactory = NullLoggerFactory.Instance;
+
+        _db = new BattleTankDbContext(DbPath);
+        _db.Database.EnsureCreated();
+
+        var repository = new PlayerRepository(_db);
+        var leaderboard = new LeaderboardService(_db);
 
         _network = new ServerNetworkManager();
         _network.Initialize(loggerFactory.CreateLogger<ServerNetworkManager>());
         AddChild(_network);
 
         _room = new GameRoomNode();
-        _room.Initialize(_network,
+        _room.Initialize(
+            _network,
             loggerFactory.CreateLogger<GameRoomNode>(),
-            loggerFactory.CreateLogger<GameRoom>());
+            loggerFactory.CreateLogger<GameRoom>(),
+            repository,
+            leaderboard);
         AddChild(_room);
 
         var error = _network.Start(Port, MaxClients);
         if (error != Error.Ok)
             GD.PrintErr($"[ServerNode] Failed to start server: {error}");
         else
-            GD.Print($"[ServerNode] Server listening on port {Port}");
+            GD.Print($"[ServerNode] Server listening on port {Port}, DB: {DbPath}");
     }
 
     public override void _ExitTree()
     {
         _network?.Stop();
+        _db?.Dispose();
     }
 }

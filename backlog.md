@@ -73,10 +73,11 @@
 
 - [x] Tests unitaires NUnit — couverture minimum 80% (GameLogic/)
 - [x] Tests d'intégration protocole (sérialisation/désérialisation MessagePack)
-- [ ] Animations : explosion de tank, tir, destruction
+- [x] Animations : explosion de tank, destruction (procédural via _Draw)
+- [ ] Animations : tir (muzzle flash — nécessite OwnerId dans BulletSnapshot)
 - [ ] Effets sonores
-- [ ] Feedback visuel hit (flash dommage)
-- [ ] Kill feed (barre latérale "X a tué Y")
+- [x] Feedback visuel hit (flash dommage)
+- [x] Kill feed (barre latérale "X a tué Y")
 - [ ] Mode spectateur pour les joueurs éliminés
 
 ## Phase 6 — Corrections qualité (code review)
@@ -98,7 +99,7 @@
 - [x] Ajouter un test de stress (10 joueurs + max bullets simultanés)
 
 **Mineurs :**
-- [ ] Remplacer les magic numbers dans les tests par des constantes calculées (`Constants.TickRate * n`)
+- [x] Remplacer les magic numbers dans les tests par des constantes calculées (`Constants.TickRate * n`)
 - [x] Implémenter les builders dans `GameStateFixtures.cs`
 - [x] Convertir les tests de collision redondants en `[TestCase]` paramétrés
 - [x] Ajouter des tests négatifs (`deltaTime <= 0`, suppression joueur pendant respawn queue)

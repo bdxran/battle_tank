@@ -257,7 +257,7 @@ public class GameRoomTests
         AdvanceThroughLobby(room);
 
         // Damage the tank first, then move both tanks away from powerup zone
-        r.Value.TakeDamage(50);
+        r.Value.TakeDamage(Constants.BulletDamage * 2);
         int damagedHealth = r.Value.Health;
         r2.Value.SetPosition(new System.Numerics.Vector2(900f, 900f));
 

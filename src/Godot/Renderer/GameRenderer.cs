@@ -15,6 +15,7 @@ public partial class GameRenderer : Node2D
     private Network.ClientNetworkManager _network = null!;
     private HudNode _hud = null!;
     private ZoneNode _zoneNode = null!;
+    private KillFeedNode _killFeed = null!;
     private int _localPlayerId;
 
     public void Initialize(Network.ClientNetworkManager network, HudNode hud, int localPlayerId)
@@ -35,8 +36,12 @@ public partial class GameRenderer : Node2D
             AddChild(wallNode);
         }
 
+        _killFeed = new KillFeedNode();
+        AddChild(_killFeed);
+
         _network.GameStateFullReceived += OnGameStateFull;
         _network.GameStateDeltaReceived += OnGameStateDelta;
+        _network.PlayerEliminated += OnPlayerEliminated;
     }
 
     public override void _ExitTree()
@@ -44,6 +49,7 @@ public partial class GameRenderer : Node2D
         if (_network is null) return;
         _network.GameStateFullReceived -= OnGameStateFull;
         _network.GameStateDeltaReceived -= OnGameStateDelta;
+        _network.PlayerEliminated -= OnPlayerEliminated;
     }
 
     private void OnGameStateFull(GameStateFull state)
@@ -112,6 +118,11 @@ public partial class GameRenderer : Node2D
             _bulletNodes[id].QueueFree();
             _bulletNodes.Remove(id);
         }
+    }
+
+    private void OnPlayerEliminated(PlayerEliminatedMessage msg)
+    {
+        _killFeed.AddEntry(msg.EliminatedPlayerId, msg.KillerPlayerId);
     }
 
     private void UpdateHud(TankSnapshot[] tanks, ZoneSnapshot zone)

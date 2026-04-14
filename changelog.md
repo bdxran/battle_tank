@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 5 — polish)
+
+- `TankNode.cs` — procedural explosion animation (3 expanding rings with alpha fade, 0.5s duration) plays on tank death
+- `TankNode.cs` — damage flash overlay (white semi-transparent rect, 0.15s) on health decrease
+- `KillFeedNode.cs` — kill feed overlay (top-right `CanvasLayer`) showing "Player X eliminated Player Y" entries that auto-expire after 4s (max 5 visible)
+- `GameRenderer.cs` — wired `PlayerEliminated` network event to `KillFeedNode`
+
+### Fixed (Phase 6 — quality corrections)
+
+- Tests — replaced hardcoded magic numbers with `Constants` references: `TakeDamage(25)` → `TakeDamage(Constants.BulletDamage)`, `TakeDamage(50)` → `TakeDamage(Constants.BulletDamage * 2)`, health assertions use `Constants.TankMaxHealth`
+
 ### Changed (Phase 6 — quality corrections)
 
 - `GameRoom.cs` — refactored 4 internal per-player dictionaries (`AccountId`, `InputBuffer`, `LastInputSeq`, `LastFireTick`) into a single `PlayerSession` class; reduces dictionary count from 9 to 5

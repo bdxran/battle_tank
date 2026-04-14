@@ -59,8 +59,8 @@ public class PowerupEntityTests
     public void TankEntity_Heal_IncreasesHealth()
     {
         var tank = new TankEntity(1, new Vector2(100, 100));
-        tank.TakeDamage(50);
-        Assert.That(tank.Health, Is.EqualTo(50));
+        tank.TakeDamage(Constants.BulletDamage * 2);
+        Assert.That(tank.Health, Is.EqualTo(Constants.TankMaxHealth - Constants.BulletDamage * 2));
 
         tank.Heal(25);
         Assert.That(tank.Health, Is.EqualTo(75));

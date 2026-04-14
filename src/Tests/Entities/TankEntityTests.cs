@@ -1,6 +1,7 @@
 using System.Numerics;
 using BattleTank.GameLogic.Entities;
 using BattleTank.GameLogic.Network;
+using BattleTank.GameLogic.Shared;
 using FluentAssertions;
 using NUnit.Framework;
 
@@ -14,7 +15,7 @@ public class TankEntityTests
     {
         var tank = new TankEntity(1, Vector2.Zero);
 
-        tank.Health.Should().Be(100);
+        tank.Health.Should().Be(Constants.TankMaxHealth);
         tank.IsAlive.Should().BeTrue();
     }
 
@@ -23,9 +24,9 @@ public class TankEntityTests
     {
         var tank = new TankEntity(1, Vector2.Zero);
 
-        tank.TakeDamage(25);
+        tank.TakeDamage(Constants.BulletDamage);
 
-        tank.Health.Should().Be(75);
+        tank.Health.Should().Be(Constants.TankMaxHealth - Constants.BulletDamage);
     }
 
     [Test]
@@ -33,7 +34,7 @@ public class TankEntityTests
     {
         var tank = new TankEntity(1, Vector2.Zero);
 
-        tank.TakeDamage(100);
+        tank.TakeDamage(Constants.TankMaxHealth);
 
         tank.IsAlive.Should().BeFalse();
         tank.Health.Should().Be(0);
@@ -44,7 +45,7 @@ public class TankEntityTests
     {
         var tank = new TankEntity(1, Vector2.Zero);
 
-        tank.TakeDamage(200);
+        tank.TakeDamage(Constants.TankMaxHealth * 2);
 
         tank.Health.Should().Be(0);
     }
@@ -53,9 +54,9 @@ public class TankEntityTests
     public void TakeDamage_WhenAlreadyDead_IsIgnored()
     {
         var tank = new TankEntity(1, Vector2.Zero);
-        tank.TakeDamage(100);
+        tank.TakeDamage(Constants.TankMaxHealth);
 
-        tank.TakeDamage(50);
+        tank.TakeDamage(Constants.BulletDamage * 2);
 
         tank.Health.Should().Be(0);
     }
@@ -108,7 +109,7 @@ public class TankEntityTests
     {
         var startPosition = new Vector2(100f, 100f);
         var tank = new TankEntity(1, startPosition);
-        tank.TakeDamage(100);
+        tank.TakeDamage(Constants.TankMaxHealth);
 
         tank.ApplyInput(InputFlags.MoveForward, 1f);
 
@@ -126,17 +127,17 @@ public class TankEntityTests
         snapshot.X.Should().Be(50f);
         snapshot.Y.Should().Be(75f);
         snapshot.Rotation.Should().Be(0f);
-        snapshot.Health.Should().Be(100);
+        snapshot.Health.Should().Be(Constants.TankMaxHealth);
     }
 
     [Test]
     public void GetSnapshot_AfterDamage_ReflectsReducedHealth()
     {
         var tank = new TankEntity(1, Vector2.Zero);
-        tank.TakeDamage(25);
+        tank.TakeDamage(Constants.BulletDamage);
 
         var snapshot = tank.GetSnapshot();
 
-        snapshot.Health.Should().Be(75);
+        snapshot.Health.Should().Be(Constants.TankMaxHealth - Constants.BulletDamage);
     }
 }

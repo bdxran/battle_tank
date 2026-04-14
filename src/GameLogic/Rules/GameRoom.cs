@@ -46,6 +46,7 @@ public class GameRoom
     private readonly ZoneController _zone;
     private readonly List<Elimination> _pendingEliminations;
     private readonly GameRoomState _state;
+    private readonly Random _random;
     private int _nextBulletId;
     private int _nextPowerupId;
     private uint _currentTick;
@@ -54,7 +55,6 @@ public class GameRoom
     private uint _lastPowerupSpawnTick;
     private GamePhase _phase;
 
-    private const uint FireCooldownTicks = 10; // 0.5s at 20 TPS
 
     public GamePhase Phase => _phase;
     public int WinnerId { get; private set; } = -1;
@@ -65,12 +65,15 @@ public class GameRoom
     public IReadOnlyDictionary<int, int> PlayerKills => _playerKills;
     public IReadOnlyDictionary<int, int> TeamScores => _teamScores;
 
-    public GameRoom(ILogger<GameRoom> logger) : this(logger, new BattleRoyaleRules()) { }
+    public GameRoom(ILogger<GameRoom> logger) : this(logger, new BattleRoyaleRules(), null) { }
 
-    public GameRoom(ILogger<GameRoom> logger, IBattleRules rules)
+    public GameRoom(ILogger<GameRoom> logger, IBattleRules rules) : this(logger, rules, null) { }
+
+    public GameRoom(ILogger<GameRoom> logger, IBattleRules rules, Random? random)
     {
         _logger = logger;
         _rules = rules;
+        _random = random ?? new Random();
         _tanks = new Dictionary<int, TankEntity>();
         _playerNicknames = new Dictionary<int, string>();
         _playerKills = new Dictionary<int, int>();
@@ -340,7 +343,7 @@ public class GameRoom
 
     private void TryFire(PlayerSession session, TankEntity tank)
     {
-        if (_currentTick - session.LastFireTick < FireCooldownTicks)
+        if (_currentTick - session.LastFireTick < _rules.FireCooldownTicks)
             return;
 
         session.LastFireTick = _currentTick;
@@ -349,7 +352,8 @@ public class GameRoom
         var direction = new Vector2(MathF.Sin(radians), -MathF.Cos(radians));
         var spawnPos = tank.Position + direction * (Constants.TankRadius + Constants.BulletRadius + 1f);
 
-        _bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
+        if (_bullets.Count < Constants.MaxBulletsInFlight)
+            _bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
     }
 
     private void TickBullets(float deltaTime)
@@ -493,7 +497,7 @@ public class GameRoom
         {
             _lastPowerupSpawnTick = _currentTick;
             var spawnPos = PowerupSpawnPoints[_nextPowerupId % PowerupSpawnPoints.Length];
-            var type = (PowerupType)(_nextPowerupId % 3);
+            var type = (PowerupType)_random.Next(3);
             _powerups.Add(new PowerupEntity(_nextPowerupId++, spawnPos, type));
         }
 
@@ -509,9 +513,8 @@ public class GameRoom
 
                 float dx = tank.Position.X - powerup.Position.X;
                 float dy = tank.Position.Y - powerup.Position.Y;
-                float dist = MathF.Sqrt(dx * dx + dy * dy);
 
-                if (dist < pickupDist)
+                if (dx * dx + dy * dy < pickupDist * pickupDist)
                 {
                     powerup.PickUp();
                     ApplyPowerup(tank, powerup.Type);
@@ -533,8 +536,8 @@ public class GameRoom
         switch (type)
         {
             case PowerupType.ExtraAmmo:
-                _playerSessions[tank.Id].LastFireTick = _currentTick >= FireCooldownTicks
-                    ? _currentTick - FireCooldownTicks + 1
+                _playerSessions[tank.Id].LastFireTick = _currentTick >= _rules.FireCooldownTicks
+                    ? _currentTick - _rules.FireCooldownTicks + 1
                     : 0;
                 break;
             case PowerupType.Shield:

@@ -7,5 +7,6 @@ public record ServerAnnouncement(
     string Name,
     int Players,
     string Mode,
-    bool HasCode
+    bool HasCode,
+    string AppVersion = ""
 );

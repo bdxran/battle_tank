@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.11] — 2026-04-14
+
+### Security
+
+- `Godot/Nodes/GameRoomNode.cs` — rate limiting Login/Register : max 5 tentatives par peer, déconnexion automatique au dépassement ; `_authAttempts` nettoyé à la déconnexion
+- `Godot/Network/ServerAnnouncement.cs` — ajout du champ `AppVersion` dans les broadcasts LAN
+- `Godot/Network/LanDiscovery.cs` — filtre les annonces dont `AppVersion != Constants.GameVersion` pour rejeter les serveurs incompatibles
+- `Godot/CrashReport/CrashReportMailer.cs` — adresse destinataire configurable via env var `CRASH_REPORT_EMAIL` (fallback sur valeur précédente)
+- `GameLogic/Network/GameStateSerializer.cs` — `MessagePackSecurity.UntrustedData` activé sur serialize/deserialize pour protéger contre les gadget-chain attacks
+
+### Added
+
+- `GameLogic/Shared/Constants.cs` — `MaxBulletsInFlight = 200` : hard cap défensif sur les bullets simultanées
+- `GameLogic/Rules/IBattleRules.cs` — propriété `FireCooldownTicks` : cooldown de tir configurable par mode de jeu
+- `Tests/Physics/WallCollisionTests.cs` — 3 nouveaux tests couvrant les directions right/up/down pour `ResolveTankWallCollision`
+
+### Changed
+
+- `GameLogic/Rules/GameRoom.cs` — `FireCooldownTicks` supprimé comme constante locale, délégué à `_rules.FireCooldownTicks` ; bullet cap appliqué dans `TryFire` ; powerup type aléatoire via `_random.Next(3)` (au lieu de `_nextPowerupId % 3`) ; distance pickup en distance² (suppression `MathF.Sqrt`) ; `Random` injectable via constructeur pour tests déterministes
+- `GameLogic/Rules/BattleRoyaleRules.cs`, `DeathmatchRules.cs`, `TeamsRules.cs`, `CaptureZoneRules.cs` — implémentent `FireCooldownTicks => 10`
+- `GameLogic/Rules/TrainingRules.cs` — `FireCooldownTicks => 5` (tir plus rapide en training)
+- `Godot/Nodes/HostNode.cs` — passe `AppVersion: Constants.GameVersion` à `LanAnnouncer`
+- `Tests/Rules/GameRoomTests.cs` — tests powerup refactorisés avec `Random` seedé pour déterminisme
+
 ## [0.0.10] — 2026-04-14
 
 ### Added (Phase 11 — Solo local & découverte LAN)

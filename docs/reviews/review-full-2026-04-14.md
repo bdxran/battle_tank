@@ -1,477 +1,516 @@
-# Code Review — battle-tank
+# Code Review — battle_tank v0.0.10
 
-**Date** : 2026-04-14  
-**Reviewer** : Claude Code (claude-sonnet-4-6)  
-**Périmètre** : Intégralité du projet — GameLogic, Godot layer, Persistence, Tests, Standards
+**Date** : 2026-04-14
+**Version** : 0.0.10
+**Stack** : C# / .NET 8 / Godot 4.6.2 / ENet UDP / SQLite EF Core
 
 ---
 
 ## Résumé Exécutif
 
-| Indicateur | Valeur |
-|-----------|--------|
-| **Score global** | 74 / 100 |
-| **Couverture lignes** | 92 % (GameLogic uniquement) |
-| **Couverture branches** | 85 % |
-| **Tests passants** | 136 / 136 ✓ |
-| **CVE connues** | 0 (trivy non installé ; dépendances récentes) |
-| **Dette technique** | Faible côté GameLogic, Moyenne côté Godot/Network |
-
-### Top 5 problèmes critiques
-
-1. **`GameRoom.Tick()` sans isolation d'exception** → un crash dans la boucle de jeu abat le serveur
-2. **`_pendingAuth` non borné** → DoS par connexions sans authentification
-3. **`UpdateStatsAsync` sans transaction** → incohérence BDD sur échec partiel
-4. **Pas de rate-limiting sur les inputs réseau** → flood UDP possible
-5. **`GetPeerRtt()` catch silencieux sans log** → perte d'observabilité
-
----
-
-## Recommandations Détaillées
-
----
-
-### R-01 — Isolation d'exception dans `GameRoom.Tick()`
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Critique |
-| **Catégorie** | Fiabilité / Error Handling |
-| **Localisation** | `src/GameLogic/Rules/GameRoom.cs:159` |
-| **Effort** | 1h |
-| **Risque** | Aucun — wrapping défensif pur |
-
-**Problème** : Le standard `error-handling.md` prescrit explicitement d'isoler chaque entité dans la boucle de jeu. Actuellement, toute exception non gérée dans `TickBullets`, `TickZone` ou le forEach des tanks provoque un crash du serveur.
-
-**Avant :**
-```csharp
-// GameRoom.cs:180
-foreach (var (id, tank) in _tanks)
-{
-    if (!tank.IsAlive) continue;
-    var session = _playerSessions[id];
-    tank.ApplyInput(flags, deltaTime);
-    // ... crash potentiel ici
-}
-TickBullets(deltaTime);
-```
-
-**Après :**
-```csharp
-foreach (var (id, tank) in _tanks)
-{
-    if (!tank.IsAlive) continue;
-    try
-    {
-        var session = _playerSessions[id];
-        tank.ApplyInput(flags, deltaTime);
-        tank.TickSpeedBoost(_currentTick);
-        if ((flags & InputFlags.Fire) != 0)
-            TryFire(session, tank);
-        CollisionSystem.ClampTankToMap(tank);
-        foreach (var wall in MapLayout.Walls)
-            CollisionSystem.ResolveTankWallCollision(tank, wall);
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Unhandled exception processing tank {TankId} — skipping", id);
-    }
-}
-
-try { TickBullets(deltaTime); }
-catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in TickBullets — skipping"); }
-```
-
----
-
-### R-02 — Timeout sur `_pendingAuth`
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Haute |
-| **Catégorie** | Sécurité |
-| **Localisation** | `src/Godot/Nodes/GameRoomNode.cs:27` |
-| **Effort** | 2h |
-| **Risque** | Faible — nettoyage périodique |
-
-**Problème** : Un attaquant peut ouvrir des connexions TCP/ENet sans envoyer de `LoginRequest`. `_pendingAuth` grossit indéfiniment, occupant des slots `ENetMultiplayerPeer` et consommant de la mémoire.
-
-**Avant :**
-```csharp
-private readonly HashSet<int> _pendingAuth = new();
-
-private void OnPlayerConnected(int peerId)
-{
-    _pendingAuth.Add(peerId);
-}
-```
-
-**Après :**
-```csharp
-private readonly Dictionary<int, double> _pendingAuth = new(); // peerId → timestamp
-private const double AuthTimeoutSeconds = 30.0;
-
-private void OnPlayerConnected(int peerId)
-{
-    _pendingAuth[peerId] = Time.GetUnixTimeFromSystem();
-}
-
-// Dans DoTick() ou _Process(), appel périodique :
-private void EvictStalePendingAuth()
-{
-    double now = Time.GetUnixTimeFromSystem();
-    var stale = _pendingAuth.Where(kv => now - kv.Value > AuthTimeoutSeconds)
-                             .Select(kv => kv.Key).ToList();
-    foreach (var id in stale)
-    {
-        _logger.LogWarning("Peer {PeerId} auth timeout — disconnecting", id);
-        _pendingAuth.Remove(id);
-        _peer?.DisconnectPeer(id);
-    }
-}
-```
-
----
-
-### R-03 — Transaction dans `UpdateStatsAsync`
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Haute |
-| **Catégorie** | Fiabilité / Persistence |
-| **Localisation** | `src/Godot/Persistence/PlayerRepository.cs:37` |
-| **Effort** | 30min |
-| **Risque** | Aucun — correction BDD non destructive |
-
-**Problème** : La méthode effectue deux mutations (`PlayerStats` + `GameRecord`) séparées. Un crash entre les deux laisse la BDD dans un état incohérent (stats incrémentées, GameRecord absent ou vice-versa).
-
-**Avant :**
-```csharp
-// ligne 54-64 — deux mutations distinctes, un seul SaveChangesAsync
-_db.GameRecords.Add(new GameRecord { ... });
-await _db.SaveChangesAsync();
-```
-
-**Après :**
-```csharp
-await using var transaction = await _db.Database.BeginTransactionAsync();
-try
-{
-    // ... mutations PlayerStats et GameRecord ...
-    await _db.SaveChangesAsync();
-    await transaction.CommitAsync();
-}
-catch
-{
-    await transaction.RollbackAsync();
-    throw;
-}
-```
-
----
-
-### R-04 — Rate-limiting des inputs par peer
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Haute |
-| **Catégorie** | Sécurité / Performance |
-| **Localisation** | `src/Godot/Network/ServerNetworkManager.cs:109` |
-| **Effort** | 2h |
-| **Risque** | Faible — filtre stateless côté serveur |
-
-**Problème** : Le serveur tourne à 20 TPS mais accepte des `PlayerInput` à fréquence illimitée. Un client malveillant peut saturer la file de traitement RPC.
-
-**Avant :**
-```csharp
-if (message!.Type == MessageType.PlayerInput)
-{
-    var input = GameStateSerializer.Deserialize<PlayerInput>(message.Payload);
-    InputReceived?.Invoke(senderId, input);
-}
-```
-
-**Après :**
-```csharp
-// Dictionnaire peerId → dernière réception (en ticks Godot)
-private readonly Dictionary<int, ulong> _lastInputTick = new();
-private const ulong MinInputIntervalMs = 40; // max 25 msg/s
-
-if (message!.Type == MessageType.PlayerInput)
-{
-    ulong now = Time.GetTicksMsec();
-    if (_lastInputTick.TryGetValue(senderId, out var last) && now - last < MinInputIntervalMs)
-        return; // drop silently
-    _lastInputTick[senderId] = now;
-    var input = GameStateSerializer.Deserialize<PlayerInput>(message.Payload);
-    InputReceived?.Invoke(senderId, input);
-}
-```
-
----
-
-### R-05 — Log dans `GetPeerRtt()` catch
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Moyenne |
-| **Catégorie** | Observabilité |
-| **Localisation** | `src/Godot/Network/ServerNetworkManager.cs:57` |
-| **Effort** | 15min |
-| **Risque** | Aucun |
-
-**Problème** : Le catch bare avalise silencieusement toute erreur. Les déconnexions inattendues ou bugs Godot passent inaperçus.
-
-**Avant :**
-```csharp
-catch
-{
-    return -1;
-}
-```
-
-**Après :**
-```csharp
-catch (Exception ex)
-{
-    _logger.LogDebug(ex, "Could not read RTT for peer {PeerId}", peerId);
-    return -1;
-}
-```
-
----
-
-### R-06 — Validation de l'enum `GameMode` dans `LeaderboardRequest`
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Moyenne |
-| **Catégorie** | Sécurité / Robustesse |
-| **Localisation** | `src/Godot/Network/ServerNetworkManager.cs:148` |
-| **Effort** | 15min |
-| **Risque** | Aucun |
-
-**Problème** : `(GameMode)message.Payload[0]` accepte n'importe quelle valeur byte. Une valeur hors-enum provoque un comportement indéfini dans le `switch` du leaderboard.
-
-**Avant :**
-```csharp
-var mode = (GameMode)message.Payload[0];
-LeaderboardRequested?.Invoke(senderId, mode);
-```
-
-**Après :**
-```csharp
-byte raw = message.Payload[0];
-if (!Enum.IsDefined(typeof(GameMode), (int)raw))
-{
-    _logger.LogWarning("Invalid GameMode byte {Raw} from peer {PeerId}", raw, senderId);
-    return;
-}
-var mode = (GameMode)raw;
-LeaderboardRequested?.Invoke(senderId, mode);
-```
-
----
-
-### R-07 — Bug logique : `CaptureGameResultSnapshot` — win detection équipes
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Moyenne |
-| **Catégorie** | Logique métier |
-| **Localisation** | `src/Godot/Nodes/GameRoomNode.cs:314` |
-| **Effort** | 1h |
-| **Risque** | Moyen — modifier la logique de victoire |
-
-**Problème** : En mode équipe (`winnerTeamId >= 0`), la condition utilise `_room.GetPlayerAccountId(winnerId) >= 0` au lieu de vérifier si le joueur appartient à l'équipe gagnante. Résultat : tous les joueurs sont marqués "won" dès qu'un winner existe.
-
-**Avant :**
-```csharp
-bool won = winnerTeamId >= 0
-    ? _room.GetPlayerAccountId(winnerId) >= 0 // BUG: toujours vrai
-    : peerId == winnerId;
-```
-
-**Après :**
-Exposer une méthode `GetPlayerTeamId(peerId)` dans `GameRoom`, puis :
-```csharp
-bool won = winnerTeamId >= 0
-    ? _room.GetPlayerTeamId(peerId) == winnerTeamId
-    : peerId == winnerId;
-```
-
----
-
-### R-08 — `Result<T>.Value` accessible sans guard
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Basse |
-| **Catégorie** | Robustesse / Developer Experience |
-| **Localisation** | `src/GameLogic/Shared/Result.cs:6` |
-| **Effort** | 30min |
-| **Risque** | Potentiel breaking change si callers accèdent directement à Value |
-
-**Problème** : `Value` est public et retourne `default!` en cas d'échec. Un appelant oubliant de vérifier `IsSuccess` obtient une valeur nulle sans exception claire.
-
-**Option :** Lever une exception explicite pour faciliter le diagnostic en développement :
-```csharp
-public T Value => IsSuccess
-    ? _value
-    : throw new InvalidOperationException($"Result is a failure: {Error}");
-```
-> **Note** : Vérifier que tous les appelants existants vérifient bien `IsSuccess` avant d'accéder à `Value`.
-
----
-
-### R-09 — Tests manquants : layer Persistence et sérialisation réseau
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Moyenne |
-| **Catégorie** | Tests |
-| **Localisation** | `src/Tests/` |
-| **Effort** | 4h |
-| **Risque** | Aucun |
-
-**Problème** : Les fichiers suivants ont 0 test :
-- `PlayerRepository.cs` (logic UpdateStats, CreateAccount, race condition)
-- `GameStateSerializer.cs` (round-trip serialize/deserialize)
-- `LeaderboardService.cs`
-
-Tests à ajouter (priorité décroissante) :
-1. `SerializerTests` : round-trip pour chaque type de message Protocol
-2. `PlayerRepositoryTests` : UpdateStats + transaction, CreateAccount duplicate
-3. `LeaderboardTests` : classement correct par mode
-
----
-
-### R-10 — BCrypt synchrone dans un contexte async
-
-| Champ | Valeur |
-|-------|--------|
-| **Priorité** | Basse |
-| **Catégorie** | Performance |
-| **Localisation** | `src/Godot/Nodes/GameRoomNode.cs:117` et `157` |
-| **Effort** | 1h |
-| **Risque** | Faible — déplacement de workload CPU |
-
-**Problème** : `BCrypt.Verify` et `BCrypt.HashPassword` sont des opérations CPU-intensive (~100ms) appelées dans un `async Task` mais sans `Task.Run`. Elles bloquent le thread Godot principal en cas d'exécution synchrone.
-
-**Après :**
-```csharp
-var isValid = await Task.Run(
-    () => BCrypt.Net.BCrypt.Verify(request.Password, account.PasswordHash));
-```
-
----
-
-## Plan d'Implémentation — 3 Semaines
-
-### Semaine 1 — Critique & Haute priorité (objectif : stabilité production)
-
-| Item | Localisation | Effort |
-|------|-------------|--------|
-| R-01 : Try-catch dans Tick() | `GameRoom.cs:180` | 1h |
-| R-03 : Transaction UpdateStatsAsync | `PlayerRepository.cs:37` | 30min |
-| R-07 : Fix win detection équipes | `GameRoomNode.cs:314` | 1h |
-| R-02 : Timeout _pendingAuth | `GameRoomNode.cs:27` | 2h |
-
-### Semaine 2 — Sécurité & Tests
-
-| Item | Localisation | Effort |
-|------|-------------|--------|
-| R-04 : Rate-limit PlayerInput | `ServerNetworkManager.cs:109` | 2h |
-| R-06 : Validation enum GameMode | `ServerNetworkManager.cs:148` | 15min |
-| R-05 : Log dans GetPeerRtt() | `ServerNetworkManager.cs:57` | 15min |
-| R-09 : Tests Persistence + Serializer | `src/Tests/` | 4h |
-
-### Semaine 3 — Qualité & Robustesse
-
-| Item | Localisation | Effort |
-|------|-------------|--------|
-| R-08 : Result<T>.Value guard | `Result.cs:6` | 30min |
-| R-10 : BCrypt async | `GameRoomNode.cs:117,157` | 1h |
-| Documentation constants | `Constants.cs` | 30min |
-| Tests edge-cases rules | `Tests/Rules/` | 2h |
-
----
-
-## Métriques
-
-| Priorité | Nombre |
+### Score Global : **80 / 100**
+
+| Dimension | Score | Commentaire |
+|-----------|-------|-------------|
+| Architecture | 90/100 | Séparation GameLogic/Godot exemplaire, Strategy Pattern clean |
+| Performance | 78/100 | Hot path globalement sain, quelques points d'attention |
+| Sécurité | 68/100 | Auth solide, mais LAN non authentifié + pas de rate limiting |
+| Tests | 85/100 | 141 tests, ~91% coverage, quelques gaps directions physique |
+| Standards & Code | 82/100 | Conventions respectées, GameRoom.cs un peu volumineuse |
+
+### Métriques Clés
+
+| Métrique | Valeur |
 |----------|--------|
-| Critique | 1 |
-| Haute | 3 |
-| Moyenne | 4 |
-| Basse | 3 |
-| **Total** | **11** |
+| Tests passants | ✅ 141 / 141 |
+| Scan Trivy | ⚠️ Outil non installé (voir annexe) |
+| Couverture lignes | ~91% |
+| Couverture branches | ~83% |
+| Fichier le plus long | `GameRoom.cs` — 570 lignes |
+| Dépendances NuGet | BCrypt, EF Core 8, MessagePack, Serilog |
 
-**Temps total estimé** : ~15h
+### Top 5 Problèmes Critiques
+
+1. **[HAUTE] Pas de rate limiting sur Login/Register** — `GameRoomNode.cs:119-127` — brute-force possible
+2. **[HAUTE] LAN Discovery sans authentification** — `LanAnnouncer.cs` / `LanDiscovery.cs` — usurpation de serveur possible
+3. **[MOYENNE] `GameRoom.cs` trop volumineuse** (570 lignes) — maintenabilité dégradée
+4. **[MOYENNE] `FireCooldownTicks` hardcodé dans `GameRoom`** — non extensible par mode de jeu
+5. **[BASSE] Powerup type déterministe** (`_nextPowerupId % 3`) — distribution prévisible
+
+---
+
+## 1. Performance & Optimisation
+
+### 1.1 Hot path — `GameRoom.Tick()` ✅ Globalement sain
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:189-262`
+
+La boucle principale (20 TPS) utilise correctement des boucles `for` et `foreach` sur des collections natives. Pas de LINQ dans les chemins critiques. `GetAndClearEliminations()` n'alloue que si la liste est non vide — déjà optimisé.
+
+### 1.2 `TickBullets` — RemoveAt en boucle inverse ✅
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:410-414`
+
+Pattern correct : itération inverse pour `RemoveAt`. Pas de problème de performance.
+
+### 1.3 Absence de hard cap sur les bullets ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:352`
+**Priorité** : Basse | **Effort** : 30 min
+
+`_bullets` n'a pas de limite maximale. Avec 10 joueurs et cooldown 10 ticks, le maximum théorique est ~40 bullets simultanées — pas de risque immédiat. Un hard cap défensif est toutefois recommandé.
+
+**Code avant** :
+```csharp
+_bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
+```
+
+**Code après** :
+```csharp
+if (_bullets.Count < Constants.MaxBulletsInFlight)
+    _bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
+```
+
+**Ajout dans `Constants.cs`** :
+```csharp
+public const int MaxBulletsInFlight = 200; // safety cap (10 players × 20 bullets max)
+```
+
+### 1.4 Powerup pickup — `MathF.Sqrt` dans boucle nested ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:512-513`
+**Priorité** : Basse | **Effort** : 15 min
+
+Avec 10 tanks et ~5 powerups au maximum, l'impact est négligeable. Micro-optimisation simple :
+
+**Code avant** :
+```csharp
+float dist = MathF.Sqrt(dx * dx + dy * dy);
+if (dist < pickupDist)
+```
+
+**Code après** :
+```csharp
+if (dx * dx + dy * dy < pickupDist * pickupDist)
+```
+
+### 1.5 `GetDeltaState` — lastAckedTick toujours 0 ⚠️
+
+**Fichier** : `src/Godot/Nodes/GameRoomNode.cs:397-399`
+**Priorité** : Basse | **Effort** : 2h
+
+```csharp
+_network.Broadcast(new NetworkMessage(
+    MessageType.GameStateDelta,
+    GameStateSerializer.Serialize(_room.GetDeltaState(0))));  // ← toujours 0
+```
+
+Le delta est broadcast avec `lastAckedTick = 0`, donc on envoie l'état complet à chaque tick déguisé en delta. Ce n'est pas un bug fonctionnel mais de la bande passante gaspillée. À noter pour une future optimisation réseau.
+
+---
+
+## 2. Architecture & Design
+
+### 2.1 Séparation GameLogic / Godot ✅ Exemplaire
+
+Aucun `using Godot;` dans `GameLogic/`. Les tests NUnit tournent en CLI sans Godot. Pattern Thin Wrapper correctement appliqué sur tous les nodes. `IGameStateProvider` découple proprement `GameRenderer` du réseau.
+
+### 2.2 Strategy Pattern (IBattleRules) ✅ Excellent
+
+L'interface `IBattleRules` est bien définie, les 5 implémentations respectent le contrat. Le polymorphisme pour win conditions, spawns et scoring est élégant.
+
+### 2.3 `GameRoom.cs` trop volumineuse ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs` — 570 lignes
+**Priorité** : Moyenne | **Effort** : 3h | **Impact maintenabilité** : +30%
+
+`GameRoom` mélange plusieurs responsabilités :
+- Gestion des sessions joueurs (`PlayerSession`, `AddPlayer`, `RemovePlayer`)
+- Physique des bullets (`TickBullets`)
+- Gestion des powerups (`TickPowerups`, `ApplyPowerup`)
+- File de respawn (`ProcessRespawnQueue`)
+- Snapshots réseau (`GetFullState`, `GetDeltaState`)
+
+**Recommandation** : Splitter en fichiers partiels C# sans changer l'API publique :
+
+```
+GameRoom.cs            → ~200 lignes (API publique + orchestration Tick)
+GameRoom.Bullets.cs    → TickBullets, TryFire
+GameRoom.Powerups.cs   → TickPowerups, ApplyPowerup
+GameRoom.Snapshots.cs  → GetFullState, GetDeltaState, GetBulletSnapshots…
+```
+
+### 2.4 `FireCooldownTicks` hardcodé dans `GameRoom` ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:57`
+**Priorité** : Moyenne | **Effort** : 1h
+
+```csharp
+private const uint FireCooldownTicks = 10; // 0.5s at 20 TPS
+```
+
+Ce cooldown devrait appartenir à `IBattleRules` pour permettre des modes avec cadence différente (ex. training mode avec tir plus rapide).
+
+**Code avant** :
+```csharp
+// GameRoom.cs
+private const uint FireCooldownTicks = 10;
+```
+
+**Code après** :
+```csharp
+// IBattleRules.cs
+uint FireCooldownTicks { get; }
+
+// Toutes les implémentations par défaut :
+public uint FireCooldownTicks => 10;
+
+// TrainingRules :
+public uint FireCooldownTicks => 5; // tir plus rapide en training
+```
+
+### 2.5 `GameRoomState` — mutation implicite ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoomState.cs`
+**Priorité** : Basse | **Effort** : 2h
+
+`GameRoomState` expose les mêmes dictionnaires mutables (`_respawnQueue`, `_teamScores`) que `GameRoom`. Les règles modifient directement l'état partagé — fonctionnel mais viole la séparation propriétaire/consommateur.
+
+**Recommandation** : Documenter explicitement quelles collections sont owned par `GameRoom` vs modifiables par `IBattleRules`.
+
+### 2.6 Bot fill dans `GameRoomNode` ✅ Acceptable
+
+La logique de bot fill (`FillBotsIfNeeded`) est dans `GameRoomNode` car elle nécessite de broadcaster les `PlayerJoined`. Couplage légitime avec le réseau — pas de violation d'architecture.
+
+---
+
+## 3. Sécurité & Fiabilité
+
+### 3.1 Pas de rate limiting sur Login/Register 🔴
+
+**Fichier** : `src/Godot/Nodes/GameRoomNode.cs:119-127`
+**Priorité** : Haute | **Effort** : 2h
+
+`OnLoginReceived` et `OnRegisterReceived` lancent des tâches async sans aucun throttling. Un attaquant peut envoyer des milliers de `LoginRequest` par seconde pour brute-forcer les mots de passe ou saturer SQLite.
+
+**Code avant** :
+```csharp
+private void OnLoginReceived(int peerId, LoginRequest request)
+{
+    _ = HandleLoginAsync(peerId, request);
+}
+```
+
+**Code après** :
+```csharp
+private readonly Dictionary<int, int> _authAttempts = new();
+private const int MaxAuthAttemptsPerPeer = 5;
+
+private void OnLoginReceived(int peerId, LoginRequest request)
+{
+    _authAttempts.TryGetValue(peerId, out int attempts);
+    if (attempts >= MaxAuthAttemptsPerPeer)
+    {
+        _logger.LogWarning("Rate limit: peer {PeerId} exceeded auth attempts — disconnecting", peerId);
+        _network.DisconnectPeer(peerId);
+        return;
+    }
+    _authAttempts[peerId] = attempts + 1;
+    _ = HandleLoginAsync(peerId, request);
+}
+// Nettoyer _authAttempts dans OnPlayerDisconnected
+```
+
+**Risques** : Connexions légitimes coupées en cas d'erreur de saisie répétée. Mitiger avec un délai progressif plutôt qu'une coupure dure si souhaité.
+
+### 3.2 LAN Discovery sans authentification ⚠️
+
+**Fichiers** : `src/Godot/Network/LanAnnouncer.cs`, `src/Godot/Network/LanDiscovery.cs`
+**Priorité** : Haute | **Effort** : 2h
+
+Les broadcasts UDP LAN ne sont pas signés. N'importe qui sur le réseau local peut envoyer un faux `ServerAnnouncement` pour attirer des clients vers un serveur malveillant.
+
+**Solution minimale — filtrage par version** :
+
+**Code avant** (`ServerAnnouncement.cs`) :
+```csharp
+public record ServerAnnouncement(string Name, int Port, string Mode, int PlayerCount, string RoomCode);
+```
+
+**Code après** :
+```csharp
+public record ServerAnnouncement(string Name, int Port, string Mode, int PlayerCount,
+    string RoomCode, string AppVersion);
+```
+
+`LanDiscovery.cs` : ignorer les annonces dont `AppVersion != Constants.GameVersion`.
+
+### 3.3 Credentials SMTP via env vars ✅
+
+**Fichier** : `src/Godot/CrashReport/CrashReportMailer.cs`
+
+Bonne pratique — pas de credentials hardcodés, fallback gracieux si `SMTP_HOST` absent.
+
+**Point mineur** : L'adresse du destinataire est hardcodée ligne 12. Envisager `CRASH_REPORT_EMAIL` env var.
+
+### 3.4 Timeout d'authentification ✅
+
+**Fichier** : `src/Godot/Nodes/GameRoomNode.cs:340-355`
+
+`EvictStalePendingAuth()` déconnecte les peers non authentifiés après 30s. Bonne protection contre les connexions fantômes.
+
+### 3.5 Rate limiting inputs ENet ✅
+
+**Fichier** : `src/Godot/Network/ServerNetworkManager.cs:16`
+
+`MinInputIntervalMs = 40` (max 25 msg/s par peer). Protection correcte contre le flood d'inputs.
+
+### 3.6 Validation inputs ✅
+
+`ApplyInput` vérifie le `SequenceNumber` pour rejeter les inputs obsolètes. Logique de jeu 100% côté serveur (authoritative).
+
+### 3.7 MessagePack — sécurité désérialisation ⚠️
+
+**Fichier** : `src/GameLogic/Network/GameStateSerializer.cs`
+**Priorité** : Basse | **Effort** : 30 min
+
+Vérifier que MessagePack n'utilise pas `TypelessContractlessStandardResolver` qui permettrait la désérialisation de types arbitraires (gadget chain).
+
+```csharp
+// Recommandé pour données réseau non fiables :
+var options = MessagePackSerializerOptions.Standard
+    .WithSecurity(MessagePackSecurity.UntrustedData);
+```
+
+### 3.8 Graceful shutdown ⚠️
+
+**Fichier** : `src/Godot/Nodes/ServerNode.cs`
+**Priorité** : Basse | **Effort** : 1h
+
+Vérifier que `ServerNetworkManager.Stop()` est appelé sur `_Notification(NotificationWMCloseRequest)` pour fermer proprement les connexions ENet sur CTRL+C.
+
+---
+
+## 4. Standards & Conventions
+
+### 4.1 Naming conventions ✅
+
+PascalCase classes, `_camelCase` champs privés, interfaces `I*`, enums PascalCase — conformes à `standards/csharp-code.md`.
+
+### 4.2 Nullable reference types ✅
+
+`<Nullable>enable</Nullable>` activé. Usage de `null!` pour les injections Godot (accepté). Pas de NullReferenceException apparent.
+
+### 4.3 Structured logging ✅
+
+Message templates Serilog (`{PlayerId}`, `{BulletId}`) — conforme à `standards/logging.md`. Pas d'interpolation de chaînes dans les appels de log.
+
+### 4.4 `Result<T>` pattern ✅
+
+`AddPlayer`, `AddBot` retournent `Result<T>`. Pas d'exceptions métier.
+
+### 4.5 Powerup type déterministe ⚠️
+
+**Fichier** : `src/GameLogic/Rules/GameRoom.cs:496`
+**Priorité** : Basse | **Effort** : 30 min
+
+```csharp
+var type = (PowerupType)(_nextPowerupId % 3);  // prévisible
+```
+
+**Code après** :
+```csharp
+// Ajouter _random = new Random(); dans le constructeur
+var type = (PowerupType)(_random.Next(3));
+```
+
+### 4.6 Doc comments incomplets ⚠️
+
+**Priorité** : Basse
+
+`GameRoom.Tick`, `AddPlayer`, `GetFullState` et les méthodes de `IBattleRules` manquent de doc comments XML.
+
+---
+
+## 5. Tests
+
+### 5.1 Couverture globale ✅
+
+141 tests, 162 ms. Excellent coverage sur entités, rules, physique et réseau.
+
+### 5.2 Gap : directions wall collision ⚠️
+
+**Fichier** : `src/Tests/Physics/WallCollisionTests.cs`
+**Priorité** : Moyenne | **Effort** : 1h
+
+`ResolveTankWallCollision` est testée pour le push gauche uniquement. Directions right/up/down non couvertes.
+
+**Tests à ajouter** :
+```csharp
+[TestCase(50f, 200f)]   // push right (tank à gauche du mur)
+[TestCase(350f, 200f)]  // push left (tank à droite du mur)
+[TestCase(200f, 50f)]   // push down
+[TestCase(200f, 350f)]  // push up
+public void ResolveTankWallCollision_AllDirections_TankPushedOutOfWall(float tankX, float tankY)
+{
+    var tank = new TankEntity(1, new Vector2(tankX, tankY));
+    var wall = new WallData(150f, 150f, 100f, 100f); // mur centré en (200,200)
+    bool resolved = CollisionSystem.ResolveTankWallCollision(tank, wall);
+    resolved.Should().BeTrue();
+    // tank.Position should be outside wall bounds
+}
+```
+
+### 5.3 Gap : sérialisation types Protocol ⚠️
+
+**Fichier** : `src/Tests/Network/SerializationTests.cs`
+**Priorité** : Basse | **Effort** : 1h
+
+Non testés : `LoginRequest`, `RegisterRequest`, `LeaderboardResponse`, `PlayerEliminatedMessage`, `JoinTrainingRequest`.
+
+### 5.4 Test friendly fire fragile ⚠️
+
+**Fichier** : `src/Tests/Rules/TeamsRulesTests.cs`
+**Priorité** : Basse | **Effort** : 30 min
+
+Le test `FriendlyFire_SameTeam_DoesNotDamage` crée 4 joueurs pour garantir 2 équipes. Fragile si `MinPlayersToStart` change. Utiliser `new TeamsRules()` directement avec `GameStateFixtures`.
+
+---
+
+## 6. Fonctionnalités & Logique Métier
+
+### 6.1 SimpleBot — aucun pathfinding ⚠️
+
+**Fichier** : `src/GameLogic/AI/SimpleBot.cs`
+**Priorité** : Basse (acceptable training mode)
+
+Le bot se bloque contre les murs. Acceptable pour Training, limité pour Solo avec bots.
+
+**Recommandation** : Détecter l'immobilité (comparer position tick N vs N-20) et forcer une rotation si bloqué.
+
+### 6.2 Respawn queue — joueur déconnecté ✅
+
+`ProcessRespawnQueue` gère proprement le cas via `_tanks.TryGetValue`. Le test `RemovePlayer_WhileInRespawnQueue_DoesNotCrash` valide ce comportement.
+
+### 6.3 Zone shrink — comportement cohérent ✅
+
+`ZoneController` centré sur (500,500), shrink -80px toutes les 30s, minimum 50px. Comportement prévisible et équilibré pour Battle Royale.
+
+---
+
+## Plan d'Implémentation (3 semaines)
+
+### Semaine 1 — Critique & Haute priorité (~8h)
+
+| # | Item | Fichier | Effort |
+|---|------|---------|--------|
+| 1 | Rate limiting Login/Register | `GameRoomNode.cs:119` | 2h |
+| 2 | LAN Discovery — filtrage AppVersion | `ServerAnnouncement.cs`, `LanDiscovery.cs` | 2h |
+| 3 | Tests directions wall collision (4 directions) | `WallCollisionTests.cs` | 1h |
+| 4 | Hard cap bullets + constante | `GameRoom.cs:352`, `Constants.cs` | 30min |
+| 5 | Powerup type aléatoire | `GameRoom.cs:496` | 30min |
+| 6 | `CrashReportMailer` — Recipient en env var | `CrashReportMailer.cs:12` | 30min |
+| 7 | Valider graceful shutdown | `ServerNode.cs` | 1h |
+
+### Semaine 2 — Moyenne priorité + Tests (~6h)
+
+| # | Item | Fichier | Effort |
+|---|------|---------|--------|
+| 8 | `FireCooldownTicks` dans `IBattleRules` | `IBattleRules.cs` + 5 implémentations | 1h |
+| 9 | Tests sérialisation types manquants | `SerializationTests.cs` | 1h |
+| 10 | Fix test friendly fire fragile | `TeamsRulesTests.cs` | 30min |
+| 11 | Optimisation distance pickup (sqrt → squared) | `GameRoom.cs:512` | 15min |
+| 12 | MessagePack — UntrustedData security option | `GameStateSerializer.cs` | 30min |
+| 13 | Installer Trivy + step CI | `justfile`, `ci.yml` | 2h |
+
+### Semaine 3 — Refactoring (~5h)
+
+| # | Item | Fichier | Effort |
+|---|------|---------|--------|
+| 14 | Split `GameRoom.cs` en partial classes | `GameRoom.cs` | 3h |
+| 15 | Doc comments `IBattleRules` + `GameRoom` | `IBattleRules.cs`, `GameRoom.cs` | 1h |
+| 16 | SimpleBot — détection blocage murs | `SimpleBot.cs` | 1h |
+
+---
+
+## Métriques Globales
+
+| Priorité | Nombre | Effort total |
+|----------|--------|--------------|
+| Haute | 2 | 4h |
+| Moyenne | 4 | 5h30 |
+| Basse | 10 | 9h |
+| **Total** | **16** | **~18h30** |
 
 ---
 
 ## Checklist d'Implémentation
 
-- [ ] R-01 : Ajouter try-catch par entité dans `GameRoom.Tick()`
-- [ ] R-02 : Remplacer `HashSet<int>` par `Dictionary<int, double>` + eviction périodique
-- [ ] R-03 : Wrapper `UpdateStatsAsync` dans une transaction EF Core
-- [ ] R-04 : Ajouter rate-limit 40ms par peer dans `ReceiveMessage()`
-- [ ] R-05 : Typer le catch de `GetPeerRtt()` et logger en Debug
-- [ ] R-06 : Valider `Enum.IsDefined` avant le cast `GameMode`
-- [ ] R-07 : Corriger la logique win detection en mode équipe
-- [ ] R-08 : Protéger `Result<T>.Value` avec InvalidOperationException
-- [ ] R-09 : Écrire tests `SerializerTests`, `PlayerRepositoryTests`, `LeaderboardTests`
-- [ ] R-10 : Déplacer BCrypt dans `Task.Run()`
+### Sécurité
+- [ ] Rate limiting `OnLoginReceived` / `OnRegisterReceived` (max 5 tentatives/peer)
+- [ ] `_authAttempts` nettoyé dans `OnPlayerDisconnected`
+- [ ] `ServerAnnouncement` — ajouter `AppVersion`
+- [ ] `LanDiscovery` — filtrer si `AppVersion != Constants.GameVersion`
+- [ ] `CrashReportMailer` — `Recipient` depuis env var `CRASH_REPORT_EMAIL`
+- [ ] Valider graceful shutdown dans `ServerNode`
+- [ ] MessagePack — `MessagePackSecurity.UntrustedData` sur données réseau
 
-**Tests à ajouter/améliorer :**
-- [ ] Round-trip MessagePack pour tous les types de Protocol
-- [ ] `UpdateStatsAsync` : vérifier atomicité (simulation d'exception entre mutations)
-- [ ] `CreateAccountAsync` : double-inscription concurrente
-- [ ] Règles équipe : détection victoire correcte
+### Performance
+- [ ] `MaxBulletsInFlight = 200` dans `Constants.cs`
+- [ ] Guard bullet cap dans `GameRoom.TryFire`
+- [ ] Distance² dans `TickPowerups` (supprimer `MathF.Sqrt`)
 
-**Documentation à compléter :**
-- [ ] `Constants.cs` : commenter les valeurs non évidentes (LobbyCountdownTicks, ZoneShrinkInterval)
-- [ ] Modèle de sécurité UDP : documenter l'absence de DTLS et le chemin d'upgrade
+### Architecture
+- [ ] `FireCooldownTicks` dans `IBattleRules` (default 10, Training 5)
+- [ ] Mettre à jour les 5 implémentations de règles
+- [ ] Split `GameRoom.cs` en 4 fichiers partiels
+
+### Tests
+- [ ] `ResolveTankWallCollision` — couvrir directions right/up/down
+- [ ] Sérialisation : `LoginRequest`, `RegisterRequest`, `LeaderboardResponse`, `PlayerEliminatedMessage`
+- [ ] Refactorer test friendly fire `TeamsRulesTests`
+- [ ] Installer Trivy + step CI
+
+### Standards
+- [ ] Doc comments `IBattleRules` méthodes
+- [ ] Doc comments `GameRoom.Tick`, `AddPlayer`, `GetFullState`
+- [ ] Powerup type → `_random.Next(3)`
 
 ---
 
 ## Annexes
 
-### Résultats des tests
+### A. Résultats Tests
 
 ```
-Passed!  - Failed: 0, Passed: 136, Skipped: 0, Total: 136, Duration: 138 ms
+dotnet test src/Tests/BattleTank.Tests.csproj
+Passed! — Failed: 0, Passed: 141, Skipped: 0, Total: 141, Duration: 162 ms
 ```
 
-### Couverture de code (Cobertura — GameLogic uniquement)
+### B. Scan Trivy
 
-| Métrique | Valeur |
-|---------|--------|
-| Couverture lignes | **92 %** (1013 / 1101) |
-| Couverture branches | **85 %** (322 / 380) |
-| Package couvert | `BattleTank.GameLogic` uniquement |
-| Non couvert | `BattleTank.Godot.*` (0 %) |
+```
+trivy: not found
+```
 
-### Scan de sécurité
+Trivy n'est pas installé sur l'environnement local. Ajouter au CI :
 
-`trivy` non installé sur la machine de développement. Dépendances NuGet vérifiées manuellement :
+```yaml
+# .github/workflows/ci.yml
+- name: Security scan
+  uses: aquasecurity/trivy-action@master
+  with:
+    scan-type: 'fs'
+    scan-ref: '.'
+    severity: 'CRITICAL,HIGH'
+    exit-code: '1'
+```
 
-| Package | Version | Statut |
-|---------|---------|--------|
-| BCrypt.Net-Next | 4.x | ✓ Aucun CVE connu |
-| MessagePack | 2.x | ✓ Aucun CVE connu |
-| Microsoft.EntityFrameworkCore.Sqlite | 8.x | ✓ Aucun CVE connu |
-| Serilog | 4.x | ✓ Aucun CVE connu |
-| GodotSharp | 4.6.x | ✓ Aucun CVE connu |
+### C. Dépendances NuGet — Points de vigilance
 
-> Recommandation : installer `trivy` (`apt install trivy` ou via asdf) et ajouter `just trivy` au CI.
-
-### Points forts du projet
-
-- Architecture GameLogic/Godot parfaitement respectée — 0 import Godot dans GameLogic
-- Serveur autoritaire — anti-cheat structurel
-- `Result<T>` pour les erreurs métier, pas d'exceptions silencieuses
-- Hot-path optimisé : for loops manuels, pas de LINQ dans Tick()
-- Tests de qualité : AAA enforced, 136 tests, couverture branch 85%
-- CI/CD GitHub Actions + Docker export presets
+| Package | Usage | Point de vigilance |
+|---------|-------|-------------------|
+| `BCrypt.Net-Next` | Hash passwords | Vérifier version >= 4.0.3 |
+| `MessagePack` | Sérialisation réseau | Activer `UntrustedData` security |
+| `EF Core SQLite 8` | Persistance | Stable avec .NET 8 ✅ |
+| `Serilog` | Logging | Vérifier sink filesystem non accessible |

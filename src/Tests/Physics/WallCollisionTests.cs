@@ -52,6 +52,39 @@ public class WallCollisionTests
         Assert.That(tank.Position, Is.EqualTo(new Vector2(100f, 100f)));
     }
 
+    // Wall centered at (450, 450) with size 100×100 (x:400-500, y:400-500)
+    // Tank radius = 20, so overlap must push tank outside [400-20, 500+20] on the relevant axis
+
+    [Test]
+    public void ResolveTankWallCollision_TankOverlapsFromRight_PushedRight()
+    {
+        // Tank just inside the right edge → pushed rightward
+        var tank = new TankEntity(1, new Vector2(495f, 450f));
+        bool hit = CollisionSystem.ResolveTankWallCollision(tank, TestWall);
+        Assert.That(hit, Is.True);
+        Assert.That(tank.Position.X, Is.GreaterThan(495f));
+    }
+
+    [Test]
+    public void ResolveTankWallCollision_TankOverlapsFromTop_PushedUp()
+    {
+        // Tank just inside the top edge → pushed upward
+        var tank = new TankEntity(1, new Vector2(450f, 405f));
+        bool hit = CollisionSystem.ResolveTankWallCollision(tank, TestWall);
+        Assert.That(hit, Is.True);
+        Assert.That(tank.Position.Y, Is.LessThan(405f));
+    }
+
+    [Test]
+    public void ResolveTankWallCollision_TankOverlapsFromBottom_PushedDown()
+    {
+        // Tank just inside the bottom edge → pushed downward
+        var tank = new TankEntity(1, new Vector2(450f, 495f));
+        bool hit = CollisionSystem.ResolveTankWallCollision(tank, TestWall);
+        Assert.That(hit, Is.True);
+        Assert.That(tank.Position.Y, Is.GreaterThan(495f));
+    }
+
     [Test]
     public void ClampTankToMap_TankOutsideBounds_Clamped()
     {

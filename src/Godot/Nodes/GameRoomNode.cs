@@ -40,6 +40,10 @@ public partial class GameRoomNode : Node
     // Maps peerId → (accountId, nickname)
     private readonly Dictionary<int, (int AccountId, string Nickname)> _authenticated = new();
 
+    // Rate limiting: tracks failed auth attempts per peer
+    private readonly Dictionary<int, int> _authAttempts = new();
+    private const int MaxAuthAttemptsPerPeer = 5;
+
     public void Initialize(
         Network.ServerNetworkManager network,
         ILogger<GameRoomNode> logger,
@@ -104,6 +108,7 @@ public partial class GameRoomNode : Node
     {
         _pendingAuth.Remove(peerId);
         _authenticated.Remove(peerId);
+        _authAttempts.Remove(peerId);
         _room.RemovePlayer(peerId);
 
         if (_room.Phase == GamePhase.GameOver)
@@ -118,12 +123,27 @@ public partial class GameRoomNode : Node
 
     private void OnLoginReceived(int peerId, LoginRequest request)
     {
+        if (IsRateLimited(peerId)) return;
         _ = HandleLoginAsync(peerId, request);
     }
 
     private void OnRegisterReceived(int peerId, RegisterRequest request)
     {
+        if (IsRateLimited(peerId)) return;
         _ = HandleRegisterAsync(peerId, request);
+    }
+
+    private bool IsRateLimited(int peerId)
+    {
+        _authAttempts.TryGetValue(peerId, out int attempts);
+        if (attempts < MaxAuthAttemptsPerPeer)
+        {
+            _authAttempts[peerId] = attempts + 1;
+            return false;
+        }
+        _logger.LogWarning("Rate limit: peer {PeerId} exceeded {Max} auth attempts — disconnecting", peerId, MaxAuthAttemptsPerPeer);
+        _network.DisconnectPeer(peerId);
+        return true;
     }
 
     private void OnLeaderboardRequested(int peerId, GameMode mode)

@@ -9,7 +9,8 @@ namespace BattleTank.Godot.CrashReport;
 
 public class CrashReportMailer
 {
-    private const string Recipient = "randy.blondiaux@contraste.com";
+    private static readonly string Recipient =
+        System.Environment.GetEnvironmentVariable("CRASH_REPORT_EMAIL") ?? "randy.blondiaux@contraste.com";
 
     public async Task<bool> SendAsync(string report, string playerComment)
     {

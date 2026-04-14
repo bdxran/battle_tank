@@ -23,6 +23,7 @@ public class TrainingRules : IBattleRules
     public bool UseShrinkingZone => false;
     public bool UsesPowerups => true;
     public int MinPlayersToStart => 1;
+    public uint FireCooldownTicks => 5; // tir plus rapide en training
 
     public void Initialize(GameRoomState state) { }
 

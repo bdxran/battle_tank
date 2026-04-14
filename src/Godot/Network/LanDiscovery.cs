@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 using Godot;
+using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.Godot.Network;
 
@@ -60,6 +61,11 @@ public partial class LanDiscovery : Node
                 string json = Encoding.UTF8.GetString(data);
                 var announcement = JsonSerializer.Deserialize<ServerAnnouncement>(json);
                 if (announcement is null) continue;
+
+                // Reject announcements from incompatible game versions
+                if (!string.IsNullOrEmpty(announcement.AppVersion) &&
+                    announcement.AppVersion != Constants.GameVersion)
+                    continue;
 
                 // Use sender address (overrides what the payload says)
                 announcement = announcement with { Address = ep.Address.ToString() };

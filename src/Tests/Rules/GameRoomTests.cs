@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using Microsoft.Extensions.Logging.Abstractions;
 using NUnit.Framework;
@@ -250,24 +251,22 @@ public class GameRoomTests
     [Test]
     public void Powerup_Shield_HealsPlayer()
     {
-        // DeathmatchRules: no shrinking zone, powerups enabled
-        var room = new GameRoom(NullLogger<GameRoom>.Instance, new DeathmatchRules());
+        // Seed 2: cycle1=SpeedBoost (skipped), cycle2=Shield at (250,250).
+        var room = new GameRoom(NullLogger<GameRoom>.Instance, new DeathmatchRules(), new Random(2));
         var r = room.AddPlayer(1);
         var r2 = room.AddPlayer(2);
         AdvanceThroughLobby(room);
 
-        // Damage the tank first, then move both tanks away from powerup zone
         r.Value.TakeDamage(Constants.BulletDamage * 2);
         int damagedHealth = r.Value.Health;
         r2.Value.SetPosition(new System.Numerics.Vector2(900f, 900f));
 
         float dt = 1f / Constants.TickRate;
-        // First spawn cycle: ExtraAmmo at (500,500). Skip by not being there.
-        // Second spawn cycle: Shield at (250,250). Position player there before spawn.
+        // Skip first spawn cycle — player away from (500,500) which is also inside a wall
         for (int i = 0; i < (int)Constants.PowerupSpawnIntervalTicks; i++)
             room.Tick(dt);
 
-        // Move player to Shield spawn point, then wait for it to spawn and be picked up
+        // Move player to second spawn point (250,250) to pick up Shield
         r.Value.SetPosition(new System.Numerics.Vector2(250f, 250f));
         for (int i = 0; i < (int)Constants.PowerupSpawnIntervalTicks + 5; i++)
             room.Tick(dt);
@@ -278,8 +277,8 @@ public class GameRoomTests
     [Test]
     public void Powerup_SpeedBoost_IncreasesSpeedMultiplier()
     {
-        // DeathmatchRules: no shrinking zone, powerups enabled
-        var room = new GameRoom(NullLogger<GameRoom>.Instance, new DeathmatchRules());
+        // Seed 0: cycle3=SpeedBoost at (750,250).
+        var room = new GameRoom(NullLogger<GameRoom>.Instance, new DeathmatchRules(), new Random(0));
         var r = room.AddPlayer(1);
         var r2 = room.AddPlayer(2);
         AdvanceThroughLobby(room);
@@ -287,10 +286,11 @@ public class GameRoomTests
         r2.Value.SetPosition(new System.Numerics.Vector2(900f, 900f));
 
         float dt = 1f / Constants.TickRate;
-        // Third spawn cycle: SpeedBoost at (750,250). Wait 2 cycles, then position player.
+        // Skip first two spawn cycles
         for (int i = 0; i < (int)Constants.PowerupSpawnIntervalTicks * 2; i++)
             room.Tick(dt);
 
+        // Move player to third spawn point (750,250) to pick up SpeedBoost
         r.Value.SetPosition(new System.Numerics.Vector2(750f, 250f));
         for (int i = 0; i < (int)Constants.PowerupSpawnIntervalTicks + 5; i++)
             room.Tick(dt);

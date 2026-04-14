@@ -21,6 +21,7 @@ public class DeathmatchRules : IBattleRules
     public bool UseShrinkingZone => false;
     public bool UsesPowerups => true;
     public int MinPlayersToStart => Constants.MinPlayersToStart;
+    public uint FireCooldownTicks => 10;
 
     public void Initialize(GameRoomState state)
     {

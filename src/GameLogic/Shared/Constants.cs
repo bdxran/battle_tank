@@ -2,7 +2,7 @@ namespace BattleTank.GameLogic.Shared;
 
 public static class Constants
 {
-    public const string GameVersion = "0.0.10";
+    public const string GameVersion = "0.0.11";
 
     public const int TickRate = 20;
     public const int MaxPlayersPerRoom = 10;
@@ -31,6 +31,7 @@ public static class Constants
 
     public const int LobbyCountdownTicks = 60;     // 3s at 20 TPS
 
+    public const int MaxBulletsInFlight = 200;          // safety cap (10 players × ~20 bullets max)
     public const uint PowerupSpawnIntervalTicks = 200; // 10s at 20 TPS
     public const uint SpeedBoostDurationTicks = 100;   // 5s at 20 TPS
     public const int ShieldHealAmount = 25;

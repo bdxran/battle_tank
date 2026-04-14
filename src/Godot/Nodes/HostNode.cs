@@ -67,7 +67,8 @@ public partial class HostNode : Node
             localIp, port, gameName,
             Players: 0,
             Mode: "BattleRoyale",
-            HasCode: !string.IsNullOrEmpty(roomCode)));
+            HasCode: !string.IsNullOrEmpty(roomCode),
+            AppVersion: Constants.GameVersion));
 
         GD.Print($"[HostNode] Server started on {localIp}:{port}, roomCode={(roomCode ?? "none")}");
         ServerReady?.Invoke(localIp, port);

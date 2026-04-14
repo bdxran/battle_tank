@@ -15,6 +15,9 @@ public interface IBattleRules
     /// <summary>Minimum number of players required to transition from WaitingForPlayers to Lobby.</summary>
     int MinPlayersToStart { get; }
 
+    /// <summary>Minimum ticks between two shots for a single player.</summary>
+    uint FireCooldownTicks { get; }
+
     /// <summary>Called once by GameRoom after construction to allow rules to populate ControlPoints etc.</summary>
     void Initialize(GameRoomState state);
 

@@ -23,7 +23,7 @@ jobs:
       - name: Restore & test
         run: |
           dotnet restore src/Tests/BattleTank.Tests.csproj
-          dotnet test src/Tests/BattleTank.Tests.csproj --logger "github-actions"
+          dotnet test src/Tests/BattleTank.Tests.csproj --logger trx
 
   export:
     name: Export — ${{ matrix.preset }}

@@ -26,4 +26,4 @@ jobs:
         run: dotnet build src/Tests/BattleTank.Tests.csproj --no-restore
 
       - name: Run tests
-        run: dotnet test src/Tests/BattleTank.Tests.csproj --no-build --logger "github-actions"
+        run: dotnet test src/Tests/BattleTank.Tests.csproj --no-build --logger trx

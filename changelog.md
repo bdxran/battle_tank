@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] — 2026-04-14
+
 ### Added (Phase 11 — Solo local & découverte LAN)
 
 - `Godot/Network/IGameStateProvider.cs` — interface découplant `GameRenderer` de `ClientNetworkManager` ; implémentée par `ClientNetworkManager` (réseau) et `LocalGameNode` (offline)

@@ -115,7 +115,7 @@
 - [x] CI GitHub Actions — tests automatiques sur chaque push/PR
 - [x] Release GitHub Actions — build + export toutes plateformes + GitHub Release sur tag `v*`
 
-## Phase 8 — Assets & Polish artistique
+## Phase 9 — Assets & Polish artistique
 
 > Objectif : Remplacer le rendu procédural par de vrais assets visuels et sonores.
 
@@ -150,6 +150,17 @@
 - [ ] Remplacer `DrawRect` de `WallNode` par tileset
 - [ ] Brancher les fichiers `.ogg` dans `assets/sounds/`
 - [ ] Ajouter musiques via `AudioStreamPlayer` dans `AudioManagerNode`
+
+## Phase 8 — Rapport de crash
+
+> Objectif : Permettre aux joueurs de signaler un crash facilement, avec envoi automatique par mail.
+
+- [x] Détecter les crashs non gérés côté client (exception non catchée, signal OS)
+- [x] Générer un rapport de crash structuré : stacktrace, version du jeu, OS, phase de jeu, derniers logs
+- [x] UI de signalement : fenêtre modale post-crash avec bouton "Envoyer le rapport"
+- [x] Envoi du rapport par mail à randy.blondiaux@contraste.com (SMTP ou service tiers)
+- [x] Inclure un champ commentaire libre (optionnel) pour le joueur
+- [x] Stocker le rapport localement en cas d'échec d'envoi (retry au prochain lancement)
 
 ---
 

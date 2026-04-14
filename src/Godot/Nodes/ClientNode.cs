@@ -1,8 +1,8 @@
 using Godot;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using BattleTank.GameLogic.Network;
 using BattleTank.GameLogic.Shared;
+using BattleTank.Godot.CrashReport;
 using BattleTank.Godot.Network;
 using BattleTank.Godot.Renderer;
 using BattleTank.Godot.UI;
@@ -16,6 +16,8 @@ namespace BattleTank.Godot.Nodes;
 /// </summary>
 public partial class ClientNode : Node
 {
+    private enum GamePhase { Connecting, Lobby, InGame, GameOver }
+
     [Export] public string ServerAddress { get; set; } = "127.0.0.1";
     [Export] public int ServerPort { get; set; } = Constants.ServerPort;
 
@@ -26,6 +28,8 @@ public partial class ClientNode : Node
     private LoginScreen _loginScreen = null!;
     private SpectatorOverlayNode _spectatorOverlay = null!;
     private AudioManagerNode _audioManager = null!;
+    private CrashReportScreen _crashReportScreen = null!;
+    private CrashReporter _crashReporter = null!;
     private int _localPlayerId;
     private int _accountId = -1;
     private string _nickname = "";
@@ -33,10 +37,15 @@ public partial class ClientNode : Node
     private bool _eliminated;
     private bool _spectating;
     private bool _authenticated;
+    private GamePhase _gamePhase = GamePhase.Connecting;
 
     public override void _Ready()
     {
-        var loggerFactory = NullLoggerFactory.Instance;
+        _crashReporter = new CrashReporter();
+        _crashReporter.Initialize(() => _gamePhase.ToString());
+        _crashReporter.PendingReportsFound += OnPendingReportsFound;
+
+        var loggerFactory = new GodotLoggerFactory(_crashReporter);
 
         _network = new ClientNetworkManager();
         _network.Initialize(loggerFactory.CreateLogger<ClientNetworkManager>());
@@ -62,6 +71,11 @@ public partial class ClientNode : Node
         _audioManager = new AudioManagerNode();
         AddChild(_audioManager);
 
+        var mailer = new CrashReportMailer();
+        _crashReportScreen = new CrashReportScreen();
+        _crashReportScreen.Initialize(_crashReporter, mailer);
+        AddChild(_crashReportScreen);
+
         _network.ConnectedToServer += OnConnected;
         _network.DisconnectedFromServer += OnDisconnected;
         _network.PlayerEliminated += OnPlayerEliminated;
@@ -72,6 +86,8 @@ public partial class ClientNode : Node
         _network.GameStateDeltaReceived += OnGameStateDeltaForSpectator;
 
         _loginScreen.Show();
+
+        _crashReporter.CheckPendingReports();
 
         var error = _network.Connect(ServerAddress, ServerPort);
         if (error != Error.Ok)
@@ -109,9 +125,16 @@ public partial class ClientNode : Node
         _network.Disconnect();
     }
 
+    private void OnPendingReportsFound(string[] paths)
+    {
+        if (paths.Length > 0)
+            _crashReportScreen.ShowCrash(paths[0]);
+    }
+
     private void OnConnected()
     {
         _localPlayerId = Multiplayer.GetUniqueId();
+        _gamePhase = GamePhase.Lobby;
         GD.Print($"[ClientNode] Connected as peer {_localPlayerId}");
         _renderer.Initialize(_network, _hud, _localPlayerId);
         _audioManager.Initialize(_network, _renderer);
@@ -121,6 +144,7 @@ public partial class ClientNode : Node
     private void OnDisconnected()
     {
         _authenticated = false;
+        _gamePhase = GamePhase.Connecting;
         GD.Print("[ClientNode] Disconnected from server");
     }
 
@@ -147,6 +171,7 @@ public partial class ClientNode : Node
         _accountId = response.AccountId;
         _nickname = response.Nickname;
         _authenticated = true;
+        _gamePhase = GamePhase.InGame;
         _loginScreen.Hide();
         GD.Print($"[ClientNode] Authenticated as {_nickname} (accountId: {_accountId})");
     }
@@ -188,6 +213,7 @@ public partial class ClientNode : Node
     {
         _eliminated = true;
         _spectating = false;
+        _gamePhase = GamePhase.GameOver;
         _spectatorOverlay.Hide();
         _gameOverScreen.ShowWin(_localPlayerId, msg.WinnerPlayerId);
     }

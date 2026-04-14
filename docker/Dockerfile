@@ -1,7 +1,7 @@
 # Dockerfile — battle-tank
 # Build multi-stage : export Godot headless Linux
 
-ARG GODOT_VERSION=4.3
+ARG GODOT_VERSION=4.6
 
 # ---------------------------------------------------------------------------
 # Étape 1 — Export du serveur Godot
@@ -12,16 +12,13 @@ WORKDIR /app
 COPY . .
 
 # Exporter le projet en mode serveur Linux headless
-RUN godot --headless --export-release "Linux Server" /build/server.x86_64
+RUN mkdir -p /build && \
+    godot --headless --export-release "Linux Server" /build/server.x86_64
 
 # ---------------------------------------------------------------------------
-# Étape 2 — Image de production minimale
+# Étape 2 — Image de production minimale (inclut le runtime .NET 8)
 # ---------------------------------------------------------------------------
-FROM debian:bookworm-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgcc-s1 \
-    && rm -rf /var/lib/apt/lists/*
+FROM mcr.microsoft.com/dotnet/runtime:8.0-bookworm-slim
 
 WORKDIR /game
 

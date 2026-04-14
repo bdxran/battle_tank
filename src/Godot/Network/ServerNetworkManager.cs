@@ -50,6 +50,20 @@ public partial class ServerNetworkManager : Node
         _logger.LogInformation("Server stopped");
     }
 
+    /// <summary>Returns round-trip time in ms for the given peer, or -1 if unavailable.</summary>
+    public int GetPeerRtt(int peerId)
+    {
+        if (_peer is null) return -1;
+        try
+        {
+            return (int)_peer.GetPeer(peerId).GetStatistic(ENetPacketPeer.PeerStatistic.RoundTripTime);
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
     public void SendToPlayer(int peerId, NetworkMessage message)
     {
         var payload = BuildPayload(message);

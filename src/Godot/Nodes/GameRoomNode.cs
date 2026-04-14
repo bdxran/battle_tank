@@ -20,6 +20,8 @@ public partial class GameRoomNode : Node
     private IPlayerRepository _repository = null!;
     private ILeaderboardService _leaderboard = null!;
     private float _accumulator;
+    private int _ticksSinceMetrics;
+    private const int MetricsIntervalTicks = 100; // every 5 s at 20 TPS
 
     // Tracks peers that connected but haven't authenticated yet
     private readonly HashSet<int> _pendingAuth = new();
@@ -235,9 +237,29 @@ public partial class GameRoomNode : Node
             GameStateSerializer.Serialize(response)));
     }
 
+    private void EmitMetrics()
+    {
+        _logger.LogInformation("[metrics] players={PlayerCount} phase={Phase}",
+            _authenticated.Count, _room.Phase);
+
+        foreach (var (peerId, _) in _authenticated)
+        {
+            int rtt = _network.GetPeerRtt(peerId);
+            if (rtt >= 0)
+                _logger.LogInformation("[metrics] peer={PeerId} rtt_ms={Rtt}", peerId, rtt);
+        }
+    }
+
     private void DoTick()
     {
         _room.Tick(TickInterval);
+
+        _ticksSinceMetrics++;
+        if (_ticksSinceMetrics >= MetricsIntervalTicks)
+        {
+            _ticksSinceMetrics = 0;
+            EmitMetrics();
+        }
 
         foreach (var elim in _room.GetAndClearEliminations())
         {

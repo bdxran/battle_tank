@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 7 — Ops)
+
+- `export_presets.cfg` — Godot 4.6 export presets: Linux Server (dedicated headless), Linux client, Windows client, macOS client
+- `justfile` — export commands: `export-server`, `export-client-linux`, `export-client-windows`, `export-client-macos`, `export-client`
+- `justfile` — docker commands: `docker-build`, `docker-run`, `docker-stop`, `docker-logs`, `docker-metrics`
+- `ServerNetworkManager.cs` — `GetPeerRtt(int peerId)` exposes ENet round-trip time per peer via `ENetPacketPeer.GetStatistic()`
+- `GameRoomNode.cs` — periodic metrics logging every 5 s (100 ticks): player count, game phase, and per-peer RTT; lines prefixed with `[metrics]` for easy grepping from `docker logs`
+
+### Fixed (Phase 7 — Ops)
+
+- `docker/Dockerfile` — bumped `GODOT_VERSION` from 4.3 to 4.6 to match project
+- `docker/Dockerfile` — switched production base image from `debian:bookworm-slim` to `mcr.microsoft.com/dotnet/runtime:8.0-bookworm-slim` (required for C# Godot exports)
+- `docker/Dockerfile` — added `mkdir -p /build` before export step
+
 ### Added (Phase 5 — polish)
 
 - `TankNode.cs` — procedural explosion animation (3 expanding rings with alpha fade, 0.5s duration) plays on tank death

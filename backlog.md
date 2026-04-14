@@ -108,10 +108,10 @@
 
 ## Phase 7 — Ops
 
-- [ ] Export Godot serveur headless (Linux)
-- [ ] Export Godot client (Windows/Linux/Mac)
-- [ ] Monitoring & alertes (latence ENet, nombre de joueurs)
-- [ ] Déploiement (plateforme cible à définir)
+- [x] Export Godot serveur headless (Linux)
+- [x] Export Godot client (Windows/Linux/Mac)
+- [x] Monitoring & alertes (latence ENet, nombre de joueurs)
+- [x] Déploiement (plateforme cible à définir)
 
 ---
 

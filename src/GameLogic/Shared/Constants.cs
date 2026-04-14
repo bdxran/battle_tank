@@ -2,7 +2,7 @@ namespace BattleTank.GameLogic.Shared;
 
 public static class Constants
 {
-    public const string GameVersion = "0.8.0";
+    public const string GameVersion = "0.0.9";
 
     public const int TickRate = 20;
     public const int MaxPlayersPerRoom = 10;

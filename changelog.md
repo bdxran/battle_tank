@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] — 2026-04-14
+
 ### Added (Phase 9 — Solo & IA ennemie)
 
 - `GameLogic/AI/IBot.cs` — interface `IBot` : `ComputeInput(tanks, currentTick)` appelé à chaque tick

@@ -55,7 +55,7 @@
 **Capture de zone :**
 - [x] Zones de contrôle sur la carte (3 zones)
 - [x] Capture progressive (tank dans la zone = accumule des points)
-- [ ] Affichage des zones contrôlées (minimap + carte) ← Godot/UI, hors périmètre GameLogic
+- [x] Affichage des zones contrôlées (minimap + carte)
 - [x] Victoire : premier à X points ou plus de points au timer
 
 ## Phase 4 — Comptes & Progression

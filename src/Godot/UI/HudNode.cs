@@ -41,8 +41,8 @@ public partial class HudNode : CanvasLayer
         _aliveLabel.Text = $"Alive: {count}";
     }
 
-    public void UpdateMinimap(TankSnapshot[] tanks, ZoneSnapshot zone)
+    public void UpdateMinimap(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)
     {
-        _minimap.UpdateFrom(tanks, zone);
+        _minimap.UpdateFrom(tanks, zone, controlPoints);
     }
 }

@@ -21,8 +21,13 @@ public partial class MinimapNode : Control
     private static readonly Color DeadTankColor = new(0.4f, 0.4f, 0.4f, 0.5f);
     private static readonly Color ZoneBorderColor = new(0.3f, 1f, 0.4f, 0.7f);
 
+    private static readonly Color ControlPointNeutral = new(0.9f, 0.9f, 0.2f, 0.7f);
+    private static readonly Color ControlPointTeam0 = new(0.3f, 0.5f, 1f, 0.9f);
+    private static readonly Color ControlPointTeam1 = new(1f, 0.3f, 0.3f, 0.9f);
+
     private TankSnapshot[] _tanks = [];
     private ZoneSnapshot _zone = new(500f, 500f, Constants.ZoneInitialRadius, Constants.ZoneDamagePerSecond);
+    private ControlPointSnapshot[] _controlPoints = [];
     private int _localPlayerId;
 
     public void Initialize(int localPlayerId)
@@ -37,10 +42,11 @@ public partial class MinimapNode : Control
         Size = new Vector2(MapSize, MapSize);
     }
 
-    public void UpdateFrom(TankSnapshot[] tanks, ZoneSnapshot zone)
+    public void UpdateFrom(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)
     {
         _tanks = tanks;
         _zone = zone;
+        _controlPoints = controlPoints;
         QueueRedraw();
     }
 
@@ -49,6 +55,20 @@ public partial class MinimapNode : Control
         // Background
         DrawRect(new Rect2(Vector2.Zero, Size), BackgroundColor);
         DrawRect(new Rect2(Vector2.Zero, Size), BorderColor, false, BorderWidth);
+
+        // Control points
+        foreach (var cp in _controlPoints)
+        {
+            var cpCenter = WorldToMinimap(cp.X, cp.Y);
+            float cpRadius = cp.Radius / Constants.MapWidth * MapSize;
+            var color = cp.ControllingTeamId switch
+            {
+                0 => ControlPointTeam0,
+                1 => ControlPointTeam1,
+                _ => ControlPointNeutral,
+            };
+            DrawArc(cpCenter, cpRadius, 0f, Mathf.Tau, 24, color, 1.5f);
+        }
 
         // Safe zone circle
         var center = WorldToMinimap(_zone.CenterX, _zone.CenterY);

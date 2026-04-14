@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added (Phase 3 — Capture de zone)
+
+- `ControlPointsNode.cs` — nouveau node Godot qui dessine les zones de capture sur la carte principale ; couleur par équipe (jaune = neutre, bleu = team 0, rouge = team 1) avec arc de progression
+- `MinimapNode.cs` — affichage des zones de capture sur la minimap avec couleur par équipe
+- `HudNode.cs` / `GameRenderer.cs` — `ControlPointSnapshot[]` propagé du `GameStateFull`/`GameStateDelta` jusqu'à la minimap et au `ControlPointsNode`
+
 ### Added (Phase 7 — Ops)
 
 - `export_presets.cfg` — Godot 4.6 export presets: Linux Server (dedicated headless), Linux client, Windows client, macOS client

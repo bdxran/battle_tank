@@ -15,6 +15,7 @@ public partial class GameRenderer : Node2D
     private Network.ClientNetworkManager _network = null!;
     private HudNode _hud = null!;
     private ZoneNode _zoneNode = null!;
+    private ControlPointsNode _controlPointsNode = null!;
     private KillFeedNode _killFeed = null!;
     private int _localPlayerId;
 
@@ -28,6 +29,9 @@ public partial class GameRenderer : Node2D
 
         _zoneNode = new ZoneNode();
         AddChild(_zoneNode);
+
+        _controlPointsNode = new ControlPointsNode();
+        AddChild(_controlPointsNode);
 
         foreach (var wall in GameLogic.Shared.MapLayout.Walls)
         {
@@ -59,7 +63,8 @@ public partial class GameRenderer : Node2D
 
         SyncBullets(state.Bullets);
         _zoneNode.UpdateFrom(state.Zone);
-        UpdateHud(state.Tanks, state.Zone);
+        _controlPointsNode.UpdateFrom(state.ControlPoints);
+        UpdateHud(state.Tanks, state.Zone, state.ControlPoints);
     }
 
     private void OnGameStateDelta(GameStateDelta state)
@@ -72,7 +77,8 @@ public partial class GameRenderer : Node2D
 
         SyncBullets(state.Bullets);
         _zoneNode.UpdateFrom(state.Zone);
-        UpdateHud(state.Tanks, state.Zone);
+        _controlPointsNode.UpdateFrom(state.ControlPoints);
+        UpdateHud(state.Tanks, state.Zone, state.ControlPoints);
     }
 
     private TankNode GetOrCreateTankNode(int playerId)
@@ -125,7 +131,7 @@ public partial class GameRenderer : Node2D
         _killFeed.AddEntry(msg.EliminatedPlayerId, msg.KillerPlayerId);
     }
 
-    private void UpdateHud(TankSnapshot[] tanks, ZoneSnapshot zone)
+    private void UpdateHud(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)
     {
         int aliveCount = 0;
         int localHealth = 0;
@@ -140,6 +146,6 @@ public partial class GameRenderer : Node2D
 
         _hud.UpdateHealth(localHealth);
         _hud.UpdateAliveCount(aliveCount);
-        _hud.UpdateMinimap(tanks, zone);
+        _hud.UpdateMinimap(tanks, zone, controlPoints);
     }
 }

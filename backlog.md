@@ -71,8 +71,8 @@
 
 ## Phase 5 — Qualité & Polish
 
-- [ ] Tests unitaires NUnit — couverture minimum 80% (GameLogic/)
-- [ ] Tests d'intégration protocole (sérialisation/désérialisation MessagePack)
+- [x] Tests unitaires NUnit — couverture minimum 80% (GameLogic/)
+- [x] Tests d'intégration protocole (sérialisation/désérialisation MessagePack)
 - [ ] Animations : explosion de tank, tir, destruction
 - [ ] Effets sonores
 - [ ] Feedback visuel hit (flash dommage)

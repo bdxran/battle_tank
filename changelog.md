@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `Tests/Rules/BattleRoyaleRulesTests.cs` — 7 tests couvrant mode, spawn, kill tracking, win condition (1 survivant, 0 survivant, plusieurs vivants), leaderboard
+- `Tests/Shared/ResultTests.cs` — 6 tests couvrant `Result<T>` Ok/Fail (IsSuccess, Value, Error, valeur par défaut)
+- `Tests/Network/SerializationTests.cs` — 11 tests d'intégration MessagePack round-trip : `PlayerInput`, `GameStateFull`, `GameStateDelta`, `LoginRequest/Response`, `RegisterRequest/Response`, `GameOverMessage`, `CountdownMessage`, `LeaderboardResponse`
+
+Couverture GameLogic atteinte : 91% lignes / 83% branches (objectif 80%).
+
+---
+
 - `GameLogic/Persistence/Models/` — entités EF Core : `PlayerAccount` (username, hash bcrypt, avatarSeed, createdAt), `PlayerStats` (kills, deaths, wins, gamesPlayed, playtimeSeconds par mode), `GameRecord` (historique des parties)
 - `GameLogic/Persistence/IPlayerRepository` — interface de persistance : find, create, updateStats, getStats
 - `GameLogic/Persistence/ILeaderboardService` — interface leaderboard par mode

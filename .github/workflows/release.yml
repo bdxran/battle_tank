@@ -69,6 +69,9 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
+      - name: Install system dependencies
+        run: apt-get update && apt-get install -y --no-install-recommends libfontconfig1
+
       - name: Install Godot export templates
         run: |
           mkdir -p ~/.local/share/godot/export_templates/4.6.2.stable

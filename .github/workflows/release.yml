@@ -70,7 +70,10 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Install system dependencies
-        run: apt-get update && apt-get install -y --no-install-recommends libfontconfig1
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends libfontconfig1
+          ldconfig
 
       - name: Install Godot export templates
         run: |
@@ -87,8 +90,8 @@ jobs:
       - name: Export — ${{ matrix.preset }}
         run: |
           mkdir -p dist/${{ matrix.artifact }}
-          godot --headless --export-release "${{ matrix.preset }}" \
-            dist/${{ matrix.artifact }}/${{ matrix.output }}
+          godot --headless --path "$GITHUB_WORKSPACE" --export-release "${{ matrix.preset }}" \
+            "$GITHUB_WORKSPACE/dist/${{ matrix.artifact }}/${{ matrix.output }}"
 
       - name: Add setup doc to server package
         if: matrix.artifact == 'server-linux'

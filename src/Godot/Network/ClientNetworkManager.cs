@@ -73,6 +73,12 @@ public partial class ClientNetworkManager : Node
         RpcId(1, MethodName.ReceiveReliableMessage, payload);
     }
 
+    public void SendJoinTraining(JoinTrainingRequest request)
+    {
+        var payload = BuildPayload(MessageType.JoinTraining, GameStateSerializer.Serialize(request));
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
     public void RequestLeaderboard(GameMode mode)
     {
         var payload = BuildPayload(MessageType.LeaderboardRequest, [(byte)mode]);

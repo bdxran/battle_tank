@@ -11,12 +11,14 @@ public partial class LoginScreen : CanvasLayer
 {
     public event Action<string, string>? LoginRequested;
     public event Action<string, string>? RegisterRequested;
+    public event Action? TrainingRequested;
 
     private LineEdit _usernameField = null!;
     private LineEdit _passwordField = null!;
     private Label _statusLabel = null!;
     private Button _loginButton = null!;
     private Button _registerButton = null!;
+    private Button _trainingButton = null!;
 
     public override void _Ready()
     {
@@ -50,6 +52,10 @@ public partial class LoginScreen : CanvasLayer
         _registerButton.Pressed += OnRegisterPressed;
         buttonRow.AddChild(_registerButton);
 
+        _trainingButton = new Button { Text = "Mode Entraînement", Disabled = true };
+        _trainingButton.Pressed += OnTrainingPressed;
+        vbox.AddChild(_trainingButton);
+
         _statusLabel = new Label { Text = "Connecting to server…" };
         _statusLabel.HorizontalAlignment = HorizontalAlignment.Center;
         vbox.AddChild(_statusLabel);
@@ -59,6 +65,7 @@ public partial class LoginScreen : CanvasLayer
     {
         _loginButton.Disabled = false;
         _registerButton.Disabled = false;
+        _trainingButton.Disabled = false;
         _statusLabel.Text = "Connected. Enter credentials.";
     }
 
@@ -83,6 +90,11 @@ public partial class LoginScreen : CanvasLayer
         _registerButton.Disabled = true;
         _statusLabel.Text = "Logging in…";
         LoginRequested?.Invoke(username, password);
+    }
+
+    private void OnTrainingPressed()
+    {
+        TrainingRequested?.Invoke();
     }
 
     private void OnRegisterPressed()

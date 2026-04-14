@@ -26,6 +26,7 @@ public partial class ClientNode : Node
     private HudNode _hud = null!;
     private GameOverScreen _gameOverScreen = null!;
     private LoginScreen _loginScreen = null!;
+    private TrainingOverlayNode _trainingOverlay = null!;
     private SpectatorOverlayNode _spectatorOverlay = null!;
     private AudioManagerNode _audioManager = null!;
     private CrashReportScreen _crashReportScreen = null!;
@@ -37,6 +38,7 @@ public partial class ClientNode : Node
     private bool _eliminated;
     private bool _spectating;
     private bool _authenticated;
+    private bool _trainingMode;
     private GamePhase _gamePhase = GamePhase.Connecting;
 
     public override void _Ready()
@@ -63,7 +65,13 @@ public partial class ClientNode : Node
         _loginScreen = new LoginScreen();
         _loginScreen.LoginRequested += OnLoginRequested;
         _loginScreen.RegisterRequested += OnRegisterRequested;
+        _loginScreen.TrainingRequested += OnTrainingRequested;
         AddChild(_loginScreen);
+
+        _trainingOverlay = new TrainingOverlayNode();
+        _trainingOverlay.JoinRankedRequested += OnJoinRankedRequested;
+        _trainingOverlay.QuitRequested += OnQuitRequested;
+        AddChild(_trainingOverlay);
 
         _spectatorOverlay = new SpectatorOverlayNode();
         AddChild(_spectatorOverlay);
@@ -84,6 +92,7 @@ public partial class ClientNode : Node
         _network.RegisterResponseReceived += OnRegisterResponse;
         _network.LeaderboardResponseReceived += OnLeaderboardResponse;
         _network.GameStateDeltaReceived += OnGameStateDeltaForSpectator;
+        _network.GameStateFullReceived += OnGameStateFullReceived;
 
         _loginScreen.Show();
 
@@ -122,6 +131,7 @@ public partial class ClientNode : Node
         _network.RegisterResponseReceived -= OnRegisterResponse;
         _network.LeaderboardResponseReceived -= OnLeaderboardResponse;
         _network.GameStateDeltaReceived -= OnGameStateDeltaForSpectator;
+        _network.GameStateFullReceived -= OnGameStateFullReceived;
         _network.Disconnect();
     }
 
@@ -146,6 +156,49 @@ public partial class ClientNode : Node
         _authenticated = false;
         _gamePhase = GamePhase.Connecting;
         GD.Print("[ClientNode] Disconnected from server");
+    }
+
+    private void OnTrainingRequested()
+    {
+        if (!_network.IsConnected()) return;
+
+        _trainingMode = true;
+        string guestNick = $"Joueur{_localPlayerId}";
+        _network.SendJoinTraining(new JoinTrainingRequest(guestNick));
+        // Authenticated state is set once the server responds with GameStateFull
+    }
+
+    private void OnGameStateFullReceived(GameStateFull state)
+    {
+        if (!_trainingMode || _authenticated) return;
+
+        // Training mode: server accepted the JoinTraining — consider us in-game
+        _authenticated = true;
+        _gamePhase = GamePhase.InGame;
+        _loginScreen.Hide();
+        _trainingOverlay.Show();
+        GD.Print("[ClientNode] Training mode active");
+    }
+
+    private void OnJoinRankedRequested()
+    {
+        // Disconnect and reconnect without training mode so the normal login screen appears
+        _trainingMode = false;
+        _authenticated = false;
+        _eliminated = false;
+        _spectating = false;
+        _gamePhase = GamePhase.Connecting;
+        _trainingOverlay.Hide();
+        _network.Disconnect();
+        _loginScreen.Show();
+        var error = _network.Connect(ServerAddress, ServerPort);
+        if (error != Error.Ok)
+            GD.PrintErr($"[ClientNode] Reconnect failed: {error}");
+    }
+
+    private static void OnQuitRequested()
+    {
+        (Engine.GetMainLoop() as SceneTree)?.Quit();
     }
 
     private void OnLoginRequested(string username, string password)

@@ -124,7 +124,7 @@
 - [x] Lancement immédiat sans compte à rebours ni nombre minimum de joueurs
 - [x] Spawn de bots cibles (statiques ou en mouvement basique) pour s'exercer à viser/tirer
 - [x] Pas de stats persistées ni de leaderboard pour ce mode
-- [ ] Bouton "Rejoindre une partie" ou "Quitter" depuis l'écran d'entraînement
+- [x] Bouton "Rejoindre une partie" ou "Quitter" depuis l'écran d'entraînement
 
 **IA ennemie (bot fill) :**
 - [x] Interface `IBot` dans `GameLogic/` : décision de mouvement + tir à chaque tick

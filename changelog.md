@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GameLogic/Rules/GameRoom.cs` — `AddBot()` : crée un `SimpleBot` avec ID négatif et suffixe `[BOT]` ; `IsBot(id)` ; bots tick avant le loop tanks ; `Reset()` nettoie les bots
 - `Godot/Network/ServerNetworkManager.cs` — événement `JoinTrainingReceived` dispatché sur `MessageType.JoinTraining`
 - `Godot/Nodes/GameRoomNode.cs` — mode entraînement (`trainingMode=true`) : `TrainingRules`, auth bypass via `JoinTraining`, pas de stats ; bot fill au démarrage de la partie (`FillBotsIfNeeded`) ; `_botsFilled` reset à chaque partie
+- `Godot/UI/TrainingOverlayNode.cs` — overlay training : bouton "Rejoindre une partie" (reconnexion en mode ranked) + bouton "Quitter"
+- `Godot/UI/LoginScreen.cs` — bouton "Mode Entraînement" (actif après connexion au serveur) ; événement `TrainingRequested`
+- `Godot/Network/ClientNetworkManager.cs` — méthode `SendJoinTraining()`
+- `Godot/Nodes/ClientNode.cs` — gestion training mode : `OnTrainingRequested`, `OnGameStateFullReceived` (activation overlay), `OnJoinRankedRequested` (reconnexion ranked), `OnQuitRequested`
 
 ### Added (Phase 3 — Capture de zone)
 

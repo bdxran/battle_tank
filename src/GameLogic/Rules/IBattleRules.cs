@@ -7,9 +7,16 @@ public record GameOverResult(int? WinnerPlayerId, int? WinnerTeamId);
 
 public interface IBattleRules
 {
+    /// <summary>Game mode identifier used for state broadcasting and UI display.</summary>
     GameMode Mode { get; }
+
+    /// <summary>When true, bullets can damage players on the same team.</summary>
     bool IsFriendlyFireEnabled { get; }
+
+    /// <summary>When true, GameRoom ticks the shrinking zone and applies out-of-zone damage.</summary>
     bool UseShrinkingZone { get; }
+
+    /// <summary>When true, GameRoom spawns and processes powerup pickups.</summary>
     bool UsesPowerups { get; }
 
     /// <summary>Minimum number of players required to transition from WaitingForPlayers to Lobby.</summary>

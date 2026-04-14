@@ -12,7 +12,7 @@ namespace BattleTank.GameLogic.Rules;
 
 public readonly record struct Elimination(int EliminatedId, int KillerId);
 
-public class GameRoom
+public partial class GameRoom
 {
     private static readonly Vector2[] PowerupSpawnPoints =
     [
@@ -130,6 +130,10 @@ public class GameRoom
         return Result<int>.Ok(botId);
     }
 
+    /// <summary>
+    /// Adds a human player to the room. Returns the created <see cref="TankEntity"/> on success,
+    /// or a failure result if the room is full or the game is already in progress.
+    /// </summary>
     public Result<TankEntity> AddPlayer(int playerId, string nickname = "")
     {
         if (_phase != GamePhase.WaitingForPlayers && _phase != GamePhase.Lobby)
@@ -189,6 +193,10 @@ public class GameRoom
         session.LastInputSeq = input.SequenceNumber;
     }
 
+    /// <summary>
+    /// Advances the game simulation by one tick. Should be called at <see cref="Constants.TickRate"/> Hz.
+    /// Handles player input, bullet physics, zone shrink, powerups, respawn queue, and win condition checks.
+    /// </summary>
     public void Tick(float deltaTime)
     {
         if (_phase == GamePhase.Lobby)
@@ -275,41 +283,6 @@ public class GameRoom
         return result;
     }
 
-    public GameStateFull GetFullState()
-    {
-        var tankSnapshots = new TankSnapshot[_tanks.Count];
-        int i = 0;
-        foreach (var tank in _tanks.Values)
-            tankSnapshots[i++] = tank.GetSnapshot();
-
-        var bulletSnapshots = GetBulletSnapshots();
-        var playerInfos = GetPlayerInfos();
-        var powerupSnapshots = GetPowerupSnapshots();
-        var controlPointSnapshots = GetControlPointSnapshots();
-
-        return new GameStateFull(
-            _currentTick, tankSnapshots, bulletSnapshots, _phase,
-            _zone.GetSnapshot(), playerInfos, CountdownSecondsRemaining,
-            powerupSnapshots, controlPointSnapshots, _rules.Mode);
-    }
-
-    public GameStateDelta GetDeltaState(uint lastAckedTick)
-    {
-        var tankSnapshots = new TankSnapshot[_tanks.Count];
-        int i = 0;
-        foreach (var tank in _tanks.Values)
-            tankSnapshots[i++] = tank.GetSnapshot();
-
-        var bulletSnapshots = GetBulletSnapshots();
-        var powerupSnapshots = GetPowerupSnapshots();
-        var controlPointSnapshots = GetControlPointSnapshots();
-
-        return new GameStateDelta(
-            _currentTick, lastAckedTick, tankSnapshots, bulletSnapshots,
-            _zone.GetSnapshot(), powerupSnapshots, controlPointSnapshots);
-
-    }
-
     public void Reset()
     {
         _tanks.Clear();
@@ -341,83 +314,6 @@ public class GameRoom
         _logger.LogInformation("GameRoom reset");
     }
 
-    private void TryFire(PlayerSession session, TankEntity tank)
-    {
-        if (_currentTick - session.LastFireTick < _rules.FireCooldownTicks)
-            return;
-
-        session.LastFireTick = _currentTick;
-
-        float radians = tank.Rotation * MathF.PI / 180f;
-        var direction = new Vector2(MathF.Sin(radians), -MathF.Cos(radians));
-        var spawnPos = tank.Position + direction * (Constants.TankRadius + Constants.BulletRadius + 1f);
-
-        if (_bullets.Count < Constants.MaxBulletsInFlight)
-            _bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
-    }
-
-    private void TickBullets(float deltaTime)
-    {
-        for (int i = 0; i < _bullets.Count; i++)
-        {
-            var bullet = _bullets[i];
-            if (!bullet.IsAlive) continue;
-
-            bullet.Tick(deltaTime);
-
-            if (CollisionSystem.IsOutOfBounds(bullet))
-            {
-                bullet.Kill();
-                continue;
-            }
-
-            bool hitWall = false;
-            foreach (var wall in MapLayout.Walls)
-            {
-                if (CollisionSystem.BulletHitsWall(bullet, wall))
-                {
-                    bullet.Kill();
-                    hitWall = true;
-                    break;
-                }
-            }
-            if (hitWall) continue;
-
-            foreach (var tank in _tanks.Values)
-            {
-                if (!CollisionSystem.BulletHitsTank(bullet, tank))
-                    continue;
-
-                // Friendly fire check
-                if (!_rules.IsFriendlyFireEnabled && tank.TeamId >= 0)
-                {
-                    bool sameTeam = _tanks.TryGetValue(bullet.OwnerId, out var shooter)
-                        && shooter.TeamId == tank.TeamId;
-                    if (sameTeam) continue;
-                }
-
-                bool wasAlive = tank.IsAlive;
-                tank.TakeDamage(Constants.BulletDamage);
-                bullet.Kill();
-                _logger.LogDebug("Bullet {BulletId} hit tank {TankId}", bullet.Id, tank.Id);
-
-                if (wasAlive && !tank.IsAlive)
-                {
-                    _pendingEliminations.Add(new Elimination(tank.Id, bullet.OwnerId));
-                    _rules.OnElimination(tank.Id, bullet.OwnerId, _currentTick, _state);
-                }
-
-                break;
-            }
-        }
-
-        for (int i = _bullets.Count - 1; i >= 0; i--)
-        {
-            if (!_bullets[i].IsAlive)
-                _bullets.RemoveAt(i);
-        }
-    }
-
     private void TickZone(float deltaTime)
     {
         foreach (var tank in _tanks.Values)
@@ -446,25 +342,6 @@ public class GameRoom
         }
     }
 
-    private BulletSnapshot[] GetBulletSnapshots()
-    {
-        var snapshots = new BulletSnapshot[_bullets.Count];
-        for (int i = 0; i < _bullets.Count; i++)
-            snapshots[i] = _bullets[i].GetSnapshot();
-        return snapshots;
-    }
-
-    private ControlPointSnapshot[] GetControlPointSnapshots()
-    {
-        if (_controlPoints.Count == 0)
-            return [];
-
-        var snapshots = new ControlPointSnapshot[_controlPoints.Count];
-        for (int i = 0; i < _controlPoints.Count; i++)
-            snapshots[i] = _controlPoints[i].GetSnapshot();
-        return snapshots;
-    }
-
     private void CheckPhaseTransition()
     {
         if (_phase == GamePhase.WaitingForPlayers && _tanks.Count >= _rules.MinPlayersToStart)
@@ -491,83 +368,4 @@ public class GameRoom
         _logger.LogInformation("Game over. Winner player: {WinnerId}, team: {WinnerTeamId}", WinnerId, WinnerTeamId);
     }
 
-    private void TickPowerups()
-    {
-        if (_currentTick - _lastPowerupSpawnTick >= Constants.PowerupSpawnIntervalTicks)
-        {
-            _lastPowerupSpawnTick = _currentTick;
-            var spawnPos = PowerupSpawnPoints[_nextPowerupId % PowerupSpawnPoints.Length];
-            var type = (PowerupType)_random.Next(3);
-            _powerups.Add(new PowerupEntity(_nextPowerupId++, spawnPos, type));
-        }
-
-        float pickupDist = Constants.PowerupRadius + Constants.TankRadius;
-        for (int i = 0; i < _powerups.Count; i++)
-        {
-            var powerup = _powerups[i];
-            if (powerup.IsPickedUp) continue;
-
-            foreach (var tank in _tanks.Values)
-            {
-                if (!tank.IsAlive) continue;
-
-                float dx = tank.Position.X - powerup.Position.X;
-                float dy = tank.Position.Y - powerup.Position.Y;
-
-                if (dx * dx + dy * dy < pickupDist * pickupDist)
-                {
-                    powerup.PickUp();
-                    ApplyPowerup(tank, powerup.Type);
-                    _logger.LogDebug("Player {Id} picked up {Type}", tank.Id, powerup.Type);
-                    break;
-                }
-            }
-        }
-
-        for (int i = _powerups.Count - 1; i >= 0; i--)
-        {
-            if (_powerups[i].IsPickedUp)
-                _powerups.RemoveAt(i);
-        }
-    }
-
-    private void ApplyPowerup(TankEntity tank, PowerupType type)
-    {
-        switch (type)
-        {
-            case PowerupType.ExtraAmmo:
-                _playerSessions[tank.Id].LastFireTick = _currentTick >= _rules.FireCooldownTicks
-                    ? _currentTick - _rules.FireCooldownTicks + 1
-                    : 0;
-                break;
-            case PowerupType.Shield:
-                tank.Heal(Constants.ShieldHealAmount);
-                break;
-            case PowerupType.SpeedBoost:
-                tank.ApplySpeedBoost(_currentTick + Constants.SpeedBoostDurationTicks);
-                break;
-        }
-    }
-
-    private PlayerInfo[] GetPlayerInfos()
-    {
-        var infos = new PlayerInfo[_tanks.Count];
-        int i = 0;
-        foreach (var (id, _) in _tanks)
-        {
-            var nickname = _playerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
-            var kills = _playerKills.TryGetValue(id, out var k) ? k : 0;
-            int teamId = _playerTeams.TryGetValue(id, out var t) ? t : -1;
-            infos[i++] = new PlayerInfo(id, nickname, kills, teamId);
-        }
-        return infos;
-    }
-
-    private PowerupSnapshot[] GetPowerupSnapshots()
-    {
-        var snapshots = new PowerupSnapshot[_powerups.Count];
-        for (int i = 0; i < _powerups.Count; i++)
-            snapshots[i] = _powerups[i].GetSnapshot();
-        return snapshots;
-    }
 }

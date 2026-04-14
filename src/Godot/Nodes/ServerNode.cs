@@ -51,6 +51,16 @@ public partial class ServerNode : Node
             GD.Print($"[ServerNode] Server listening on port {Port}, DB: {DbPath}");
     }
 
+    public override void _Notification(int what)
+    {
+        if (what == NotificationWMCloseRequest)
+        {
+            _network?.Stop();
+            _db?.Dispose();
+            GetTree().Quit();
+        }
+    }
+
     public override void _ExitTree()
     {
         _network?.Stop();

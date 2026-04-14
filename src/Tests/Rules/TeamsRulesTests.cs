@@ -56,13 +56,20 @@ public class TeamsRulesTests
     [Test]
     public void FriendlyFire_SameTeam_DoesNotDamage()
     {
-        // Need 4 players so that 2 are on team 0
+        // 4 players required: TeamsRules assigns in round-robin order, so p1 and p3 land on
+        // team 0, p2 and p4 on team 1. With only 2 players they would be enemies (different teams),
+        // making a friendly-fire scenario impossible.
         var room = CreateRoom();
         var r1 = room.AddPlayer(1, "T0-A");
         var r2 = room.AddPlayer(2, "T1-A");
         var r3 = room.AddPlayer(3, "T0-B");
         var r4 = room.AddPlayer(4, "T1-B");
         AdvanceThroughLobby(room);
+
+        // Verify team assignments are as expected
+        Assert.That(room.GetPlayerTeamId(1), Is.EqualTo(room.GetPlayerTeamId(3)), "p1 and p3 should be on the same team");
+        Assert.That(room.GetPlayerTeamId(2), Is.EqualTo(room.GetPlayerTeamId(4)), "p2 and p4 should be on the same team");
+        Assert.That(room.GetPlayerTeamId(1), Is.Not.EqualTo(room.GetPlayerTeamId(2)), "teams should be different");
 
         int initialHealth = r3.Value.Health;
 

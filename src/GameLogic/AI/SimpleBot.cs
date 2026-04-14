@@ -14,10 +14,14 @@ public sealed class SimpleBot : IBot
 {
     private const uint MovementChangeTicks = 40; // 2s at 20 TPS
     private const float AimToleranceDegrees = 15f;
+    private const int StuckThresholdTicks = 20;   // 1s at 20 TPS
+    private const float StuckDistanceSq = 1f;     // 1px² — considered stuck below this
 
     private readonly Random _rng;
     private InputFlags _movementFlags;
     private uint _nextMovementChangeTick;
+    private Vector2 _lastPosition;
+    private int _stuckTicks;
 
     public int PlayerId { get; }
 
@@ -32,6 +36,25 @@ public sealed class SimpleBot : IBot
     {
         if (!tanks.TryGetValue(PlayerId, out var self) || !self.IsAlive)
             return InputFlags.None;
+
+        // Detect wall-stuck: if the bot hasn't moved for StuckThresholdTicks, pick a new direction immediately
+        float ddx = self.Position.X - _lastPosition.X;
+        float ddy = self.Position.Y - _lastPosition.Y;
+        if (ddx * ddx + ddy * ddy < StuckDistanceSq)
+        {
+            _stuckTicks++;
+            if (_stuckTicks >= StuckThresholdTicks)
+            {
+                _movementFlags = PickRandomMovement();
+                _nextMovementChangeTick = currentTick + MovementChangeTicks;
+                _stuckTicks = 0;
+            }
+        }
+        else
+        {
+            _stuckTicks = 0;
+        }
+        _lastPosition = self.Position;
 
         // Refresh random movement direction periodically
         if (currentTick >= _nextMovementChangeTick)

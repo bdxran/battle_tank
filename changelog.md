@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.12] — 2026-04-14
+
+### Added
+
+- `GameLogic/Rules/GameRoom.Bullets.cs` — partial class : `TryFire`, `TickBullets` extraits de `GameRoom.cs`
+- `GameLogic/Rules/GameRoom.Powerups.cs` — partial class : `TickPowerups`, `ApplyPowerup` extraits de `GameRoom.cs`
+- `GameLogic/Rules/GameRoom.Snapshots.cs` — partial class : `GetFullState`, `GetDeltaState`, helpers snapshot extraits de `GameRoom.cs`
+
+### Changed
+
+- `GameLogic/Rules/GameRoom.cs` — déclaré `partial` ; `GetFullState`, `GetDeltaState`, `TryFire`, `TickBullets`, `TickPowerups`, `ApplyPowerup` déplacés dans les fichiers partiels ; doc comments ajoutés sur `Tick`, `AddPlayer`, `GetFullState`, `GetDeltaState`
+- `GameLogic/Rules/IBattleRules.cs` — doc comments ajoutés sur toutes les propriétés (`Mode`, `IsFriendlyFireEnabled`, `UseShrinkingZone`, `UsesPowerups`)
+- `GameLogic/AI/SimpleBot.cs` — détection de blocage murs : si la position ne change pas sur 20 ticks consécutifs, change de direction immédiatement
+- `Godot/Nodes/ServerNode.cs` — graceful shutdown : `_Notification(NotificationWMCloseRequest)` appelle `Stop()` + `Quit()` pour fermer proprement sur CTRL+C headless
+- `Tests/Rules/TeamsRulesTests.cs` — `FriendlyFire_SameTeam_DoesNotDamage` : assertions `GetPlayerTeamId` ajoutées pour documenter explicitement pourquoi 4 joueurs sont nécessaires
+
 ## [0.0.11] — 2026-04-14
 
 ### Security

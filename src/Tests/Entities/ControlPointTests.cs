@@ -64,8 +64,8 @@ public class ControlPointTests
             [1] = MakeTank(1, 0, 500f, 500f),
         };
 
-        // Tick enough for full capture (CaptureRatePerSecond / 100 per sec = 0.1/s → need 10s)
-        for (int i = 0; i < 250; i++) // 250 ticks = 12.5 seconds at 20 TPS
+        // Tick enough for full capture: CaptureRatePerSecond/100 = 0.1/s → need 10s = 200 ticks; use 13s for margin
+        for (int i = 0; i < Constants.TickRate * 13; i++)
             cp.Tick(tanks, 1f / Constants.TickRate);
 
         Assert.That(cp.ControllingTeamId, Is.EqualTo(0));
@@ -81,8 +81,8 @@ public class ControlPointTests
             [1] = MakeTank(1, 0, 500f, 500f),
         };
 
-        // Fully capture
-        for (int i = 0; i < 250; i++)
+        // Fully capture: need 10s = 200 ticks; use 13s for margin
+        for (int i = 0; i < Constants.TickRate * 13; i++)
             cp.Tick(tanks, 1f / Constants.TickRate);
 
         // Even with no one in zone, controlling team still "scores" (holds the point)

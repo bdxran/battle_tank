@@ -24,7 +24,6 @@ public class CaptureZoneRules : IBattleRules
     private int _ticksRemaining;
     private bool _gameOver;
     private GameOverResult? _result;
-    private readonly Dictionary<int, float> _floatScores = new();
 
     public GameMode Mode => GameMode.CaptureZone;
     public bool IsFriendlyFireEnabled => true;
@@ -36,8 +35,6 @@ public class CaptureZoneRules : IBattleRules
         _ticksRemaining = Constants.CaptureZoneDurationTicks;
         _gameOver = false;
         _result = null;
-
-        _floatScores.Clear();
 
         state.ControlPoints.Clear();
         for (int i = 0; i < ControlPointPositions.Length; i++)
@@ -77,16 +74,14 @@ public class CaptureZoneRules : IBattleRules
     {
         if (_gameOver) return;
 
-        // Tick each control point and accumulate team scores
+        // Each tick a team controls a zone → +1 point (integer, no float rounding)
         foreach (var cp in state.ControlPoints)
         {
             int? scoringTeam = cp.Tick(state.Tanks, deltaTime);
             if (scoringTeam.HasValue && state.TeamScores.ContainsKey(scoringTeam.Value))
             {
                 int team = scoringTeam.Value;
-                if (!_floatScores.ContainsKey(team)) _floatScores[team] = 0f;
-                _floatScores[team] += Constants.CaptureRatePerSecond * deltaTime;
-                state.TeamScores[team] = (int)_floatScores[team];
+                state.TeamScores[team]++;
 
                 if (state.TeamScores[team] >= Constants.CaptureZoneScoreToWin)
                 {

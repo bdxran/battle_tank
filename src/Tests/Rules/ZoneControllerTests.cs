@@ -1,3 +1,4 @@
+using System;
 using System.Numerics;
 using NUnit.Framework;
 using BattleTank.GameLogic.Entities;
@@ -29,8 +30,9 @@ public class ZoneControllerTests
     public void Tick_RadiusNeverBelowMinRadius()
     {
         var zone = new ZoneController();
-        // Shrink many times
-        for (int i = 0; i < 20; i++)
+        // Shrink many times — (450-50)/80 = 5 steps to reach min; use 4× that to be safe
+        int maxShrinks = (int)Math.Ceiling((Constants.ZoneInitialRadius - Constants.ZoneMinRadius) / Constants.ZoneShrinkAmount) * 4;
+        for (int i = 0; i < maxShrinks; i++)
             zone.Tick(Constants.ZoneShrinkInterval, []);
         Assert.That(zone.GetSnapshot().Radius, Is.GreaterThanOrEqualTo(Constants.ZoneMinRadius));
     }

@@ -8,28 +8,28 @@ public static class MapLayout
 {
     public static readonly WallData[] Walls =
     [
-        // Centre — croix centrale
-        new(460f, 380f, 80f, 30f),   // barre horizontale haut
-        new(460f, 590f, 80f, 30f),   // barre horizontale bas
-        new(480f, 410f, 40f, 180f),  // barre verticale (relie les deux)
+        // Center — cross structure
+        new(460f, 380f, 80f, 30f),   // horizontal bar top
+        new(460f, 590f, 80f, 30f),   // horizontal bar bottom
+        new(480f, 410f, 40f, 180f),  // vertical bar (connects the two)
 
-        // Quadrant haut-gauche
+        // Top-left quadrant
         new(180f, 180f, 80f, 20f),
         new(180f, 200f, 20f, 80f),
 
-        // Quadrant haut-droit
+        // Top-right quadrant
         new(740f, 180f, 80f, 20f),
         new(800f, 200f, 20f, 80f),
 
-        // Quadrant bas-gauche
+        // Bottom-left quadrant
         new(180f, 740f, 20f, 80f),
         new(180f, 800f, 80f, 20f),
 
-        // Quadrant bas-droit
+        // Bottom-right quadrant
         new(800f, 740f, 20f, 80f),
         new(740f, 800f, 80f, 20f),
 
-        // Couloirs latéraux
+        // Side corridors
         new(60f,  440f, 60f, 20f),
         new(880f, 440f, 60f, 20f),
         new(440f, 60f,  20f, 60f),

@@ -19,21 +19,26 @@ public class GameRoom
         new(500, 200), new(500, 800), new(200, 500), new(800, 500),
     ];
 
+    private sealed class PlayerSession
+    {
+        public int AccountId;
+        public InputFlags InputBuffer;
+        public uint LastInputSeq;
+        public uint LastFireTick;
+    }
+
     private readonly ILogger<GameRoom> _logger;
     private readonly IBattleRules _rules;
     private readonly Dictionary<int, TankEntity> _tanks;
     private readonly Dictionary<int, string> _playerNicknames;
     private readonly Dictionary<int, int> _playerKills;
-    private readonly Dictionary<int, int> _playerAccountIds;
     private readonly Dictionary<int, int> _playerTeams;
     private readonly Dictionary<int, int> _teamScores;
-    private readonly Dictionary<int, InputFlags> _inputBuffer;
-    private readonly Dictionary<int, uint> _lastInputSeq;
-    private readonly Dictionary<int, uint> _lastFireTick;
+    private readonly Dictionary<int, PlayerSession> _playerSessions;
     private readonly List<BulletEntity> _bullets;
     private readonly List<PowerupEntity> _powerups;
     private readonly List<ControlPoint> _controlPoints;
-    private readonly Queue<(int PlayerId, uint RespawnTick)> _respawnQueue;
+    private readonly Queue<(int PlayerId, uint RespawnTick, Vector2 SpawnPos)> _respawnQueue;
     private readonly ZoneController _zone;
     private readonly List<Elimination> _pendingEliminations;
     private readonly GameRoomState _state;
@@ -65,16 +70,13 @@ public class GameRoom
         _tanks = new Dictionary<int, TankEntity>();
         _playerNicknames = new Dictionary<int, string>();
         _playerKills = new Dictionary<int, int>();
-        _playerAccountIds = new Dictionary<int, int>();
         _playerTeams = new Dictionary<int, int>();
         _teamScores = new Dictionary<int, int>();
-        _inputBuffer = new Dictionary<int, InputFlags>();
-        _lastInputSeq = new Dictionary<int, uint>();
-        _lastFireTick = new Dictionary<int, uint>();
+        _playerSessions = new Dictionary<int, PlayerSession>();
         _bullets = new List<BulletEntity>();
         _powerups = new List<PowerupEntity>();
         _controlPoints = new List<ControlPoint>();
-        _respawnQueue = new Queue<(int, uint)>();
+        _respawnQueue = new Queue<(int, uint, Vector2)>();
         _zone = new ZoneController();
         _pendingEliminations = new List<Elimination>();
         _phase = GamePhase.WaitingForPlayers;
@@ -89,10 +91,13 @@ public class GameRoom
     public PlayerInfo[] GetLeaderboard() => _rules.GetLeaderboard(_state);
 
     public void SetPlayerAccountId(int playerId, int accountId)
-        => _playerAccountIds[playerId] = accountId;
+    {
+        if (_playerSessions.TryGetValue(playerId, out var session))
+            session.AccountId = accountId;
+    }
 
     public int GetPlayerAccountId(int playerId)
-        => _playerAccountIds.TryGetValue(playerId, out int id) ? id : -1;
+        => _playerSessions.TryGetValue(playerId, out var session) ? session.AccountId : -1;
 
     public Result<TankEntity> AddPlayer(int playerId, string nickname = "")
     {
@@ -115,9 +120,7 @@ public class GameRoom
         _tanks[playerId] = tank;
         _playerNicknames[playerId] = string.IsNullOrWhiteSpace(nickname) ? $"Tank{playerId}" : nickname;
         _playerKills[playerId] = 0;
-        _inputBuffer[playerId] = InputFlags.None;
-        _lastInputSeq[playerId] = 0;
-        _lastFireTick[playerId] = 0;
+        _playerSessions[playerId] = new PlayerSession();
 
         _logger.LogInformation("Player {PlayerId} ({Nickname}) joined at {SpawnPos}", playerId, _playerNicknames[playerId], spawnPos);
         CheckPhaseTransition();
@@ -132,11 +135,8 @@ public class GameRoom
 
         _playerNicknames.Remove(playerId);
         _playerKills.Remove(playerId);
-        _playerAccountIds.Remove(playerId);
         _playerTeams.Remove(playerId);
-        _inputBuffer.Remove(playerId);
-        _lastInputSeq.Remove(playerId);
-        _lastFireTick.Remove(playerId);
+        _playerSessions.Remove(playerId);
 
         _logger.LogInformation("Player {PlayerId} removed", playerId);
 
@@ -146,14 +146,14 @@ public class GameRoom
 
     public void ApplyInput(int playerId, PlayerInput input)
     {
-        if (!_tanks.ContainsKey(playerId))
+        if (!_playerSessions.TryGetValue(playerId, out var session))
             return;
 
-        if (input.SequenceNumber <= _lastInputSeq[playerId])
+        if (input.SequenceNumber <= session.LastInputSeq)
             return;
 
-        _inputBuffer[playerId] = input.Flags;
-        _lastInputSeq[playerId] = input.SequenceNumber;
+        session.InputBuffer = input.Flags;
+        session.LastInputSeq = input.SequenceNumber;
     }
 
     public void Tick(float deltaTime)
@@ -181,12 +181,13 @@ public class GameRoom
         {
             if (!tank.IsAlive) continue;
 
-            var flags = _inputBuffer[id];
+            var session = _playerSessions[id];
+            var flags = session.InputBuffer;
             tank.ApplyInput(flags, deltaTime);
             tank.TickSpeedBoost(_currentTick);
 
             if ((flags & InputFlags.Fire) != 0)
-                TryFire(id, tank);
+                TryFire(session, tank);
 
             CollisionSystem.ClampTankToMap(tank);
             foreach (var wall in MapLayout.Walls)
@@ -235,7 +236,7 @@ public class GameRoom
         return new GameStateFull(
             _currentTick, tankSnapshots, bulletSnapshots, _phase,
             _zone.GetSnapshot(), playerInfos, CountdownSecondsRemaining,
-            powerupSnapshots, _rules.Mode, controlPointSnapshots);
+            powerupSnapshots, controlPointSnapshots, _rules.Mode);
     }
 
     public GameStateDelta GetDeltaState(uint lastAckedTick)
@@ -252,6 +253,7 @@ public class GameRoom
         return new GameStateDelta(
             _currentTick, lastAckedTick, tankSnapshots, bulletSnapshots,
             _zone.GetSnapshot(), powerupSnapshots, controlPointSnapshots);
+
     }
 
     public void Reset()
@@ -259,12 +261,9 @@ public class GameRoom
         _tanks.Clear();
         _playerNicknames.Clear();
         _playerKills.Clear();
-        _playerAccountIds.Clear();
         _playerTeams.Clear();
         _teamScores.Clear();
-        _inputBuffer.Clear();
-        _lastInputSeq.Clear();
-        _lastFireTick.Clear();
+        _playerSessions.Clear();
         _bullets.Clear();
         _powerups.Clear();
         _controlPoints.Clear();
@@ -285,18 +284,18 @@ public class GameRoom
         _logger.LogInformation("GameRoom reset");
     }
 
-    private void TryFire(int playerId, TankEntity tank)
+    private void TryFire(PlayerSession session, TankEntity tank)
     {
-        if (_currentTick - _lastFireTick[playerId] < FireCooldownTicks)
+        if (_currentTick - session.LastFireTick < FireCooldownTicks)
             return;
 
-        _lastFireTick[playerId] = _currentTick;
+        session.LastFireTick = _currentTick;
 
         float radians = tank.Rotation * MathF.PI / 180f;
         var direction = new Vector2(MathF.Sin(radians), -MathF.Cos(radians));
         var spawnPos = tank.Position + direction * (Constants.TankRadius + Constants.BulletRadius + 1f);
 
-        _bullets.Add(new BulletEntity(_nextBulletId++, playerId, spawnPos, direction));
+        _bullets.Add(new BulletEntity(_nextBulletId++, tank.Id, spawnPos, direction));
     }
 
     private void TickBullets(float deltaTime)
@@ -380,10 +379,9 @@ public class GameRoom
     {
         while (_respawnQueue.Count > 0 && _respawnQueue.Peek().RespawnTick <= _currentTick)
         {
-            var (playerId, _) = _respawnQueue.Dequeue();
+            var (playerId, _, spawnPos) = _respawnQueue.Dequeue();
             if (_tanks.TryGetValue(playerId, out var tank))
             {
-                var spawnPos = _rules.GetSpawnPoint(playerId, _state);
                 tank.Respawn(spawnPos);
                 _logger.LogInformation("Player {PlayerId} respawned at {SpawnPos}", playerId, spawnPos);
             }
@@ -398,10 +396,10 @@ public class GameRoom
         return snapshots;
     }
 
-    private ControlPointSnapshot[]? GetControlPointSnapshots()
+    private ControlPointSnapshot[] GetControlPointSnapshots()
     {
         if (_controlPoints.Count == 0)
-            return null;
+            return [];
 
         var snapshots = new ControlPointSnapshot[_controlPoints.Count];
         for (int i = 0; i < _controlPoints.Count; i++)
@@ -481,7 +479,9 @@ public class GameRoom
         switch (type)
         {
             case PowerupType.ExtraAmmo:
-                _lastFireTick[tank.Id] = 0;
+                _playerSessions[tank.Id].LastFireTick = _currentTick >= FireCooldownTicks
+                    ? _currentTick - FireCooldownTicks + 1
+                    : 0;
                 break;
             case PowerupType.Shield:
                 tank.Heal(Constants.ShieldHealAmount);

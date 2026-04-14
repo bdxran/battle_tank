@@ -53,8 +53,8 @@ public record GameStateFull(
     [property: Key(5)] PlayerInfo[] Players,
     [property: Key(6)] int CountdownSecondsRemaining,
     [property: Key(7)] PowerupSnapshot[] Powerups,
-    [property: Key(8)] GameMode Mode = GameMode.BattleRoyale,
-    [property: Key(9)] ControlPointSnapshot[]? ControlPoints = null
+    [property: Key(8)] ControlPointSnapshot[] ControlPoints,
+    [property: Key(9)] GameMode Mode = GameMode.BattleRoyale
 );
 
 [MessagePackObject]
@@ -65,7 +65,7 @@ public record GameStateDelta(
     [property: Key(3)] BulletSnapshot[] Bullets,
     [property: Key(4)] ZoneSnapshot Zone,
     [property: Key(5)] PowerupSnapshot[] Powerups,
-    [property: Key(6)] ControlPointSnapshot[]? ControlPoints = null
+    [property: Key(6)] ControlPointSnapshot[] ControlPoints
 );
 
 [MessagePackObject]

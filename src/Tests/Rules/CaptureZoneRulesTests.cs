@@ -85,7 +85,7 @@ public class CaptureZoneRulesTests
         // CaptureRatePerSecond=10, to reach CaptureProgress=1 we need 100/10=10 seconds
         // Actually CaptureProgress rate = CaptureRatePerSecond / 100 per second = 0.1 per second
         // So 10 seconds = 200 ticks
-        for (int t = 0; t < 250; t++)
+        for (int t = 0; t < Constants.TickRate * 13; t++)
             room.Tick(dt);
 
         var scores = room.TeamScores;
@@ -109,7 +109,7 @@ public class CaptureZoneRulesTests
         r2.Value.SetPosition(new System.Numerics.Vector2(100f, 100f));
 
         float dt = 1f / Constants.TickRate;
-        for (int t = 0; t < 250; t++)
+        for (int t = 0; t < Constants.TickRate * 13; t++)
             room.Tick(dt);
 
         var lb = room.GetLeaderboard();

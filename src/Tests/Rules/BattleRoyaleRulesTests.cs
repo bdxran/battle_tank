@@ -65,7 +65,7 @@ public class BattleRoyaleRulesTests
 
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 50; t++)
+        for (int t = 0; t < Constants.TickRate * 3; t++)
             room.Tick(dt);
 
         var lb = room.GetLeaderboard();
@@ -98,7 +98,7 @@ public class BattleRoyaleRulesTests
 
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 50; t++)
+        for (int t = 0; t < Constants.TickRate * 3; t++)
             room.Tick(dt);
 
         Assert.That(room.Phase, Is.EqualTo(GamePhase.GameOver));

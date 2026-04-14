@@ -73,7 +73,7 @@ public class TeamsRulesTests
         float dt = 1f / Constants.TickRate;
         // p1 faces up (rotation=0), shoots at p3 (directly ahead)
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 20; t++)
+        for (int t = 0; t < Constants.TickRate; t++) // 1 second — bullet travels from p1 to p3
             room.Tick(dt);
 
         // p3 should not take damage from p1 (same team)

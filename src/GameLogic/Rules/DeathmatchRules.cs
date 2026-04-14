@@ -42,8 +42,8 @@ public class DeathmatchRules : IBattleRules
         if (killerId >= 0 && state.PlayerKills.ContainsKey(killerId))
             state.PlayerKills[killerId]++;
 
-        // Queue respawn
-        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.DeathmatchRespawnDelayTicks));
+        var spawnPos = GetSpawnPoint(eliminatedId, state);
+        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.DeathmatchRespawnDelayTicks, spawnPos));
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state)

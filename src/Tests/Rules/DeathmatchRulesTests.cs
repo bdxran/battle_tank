@@ -57,7 +57,7 @@ public class DeathmatchRulesTests
 
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 50; t++)
+        for (int t = 0; t < Constants.TickRate * 3; t++)
             room.Tick(dt);
 
         // Advance to end of deathmatch timer
@@ -83,7 +83,7 @@ public class DeathmatchRulesTests
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
         // Fire 4 shots worth (40 ticks at cooldown 10)
-        for (int t = 0; t < 50; t++)
+        for (int t = 0; t < Constants.TickRate * 3; t++)
             room.Tick(dt);
 
         // Player 2 should be dead
@@ -111,7 +111,7 @@ public class DeathmatchRulesTests
 
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 50; t++)
+        for (int t = 0; t < Constants.TickRate * 3; t++)
             room.Tick(dt);
 
         // Even though p2 is dead, game should still be InProgress (deathmatch has respawns)

@@ -35,6 +35,7 @@ public class SerializationTests
             Players: [new PlayerInfo(1, "Alpha", 3)],
             CountdownSecondsRemaining: 0,
             Powerups: [],
+            ControlPoints: [],
             Mode: GameMode.BattleRoyale
         );
         var result = RoundTrip(original);
@@ -57,7 +58,8 @@ public class SerializationTests
             Tanks: [new TankSnapshot(2, 50f, 60f, 0f, 100)],
             Bullets: [],
             Zone: new ZoneSnapshot(500f, 500f, 300f, 10f),
-            Powerups: []
+            Powerups: [],
+            ControlPoints: []
         );
         var result = RoundTrip(original);
         Assert.That(result.SequenceNumber, Is.EqualTo(200u));

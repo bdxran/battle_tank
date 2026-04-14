@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Numerics;
 using BattleTank.GameLogic.Entities;
 
 namespace BattleTank.GameLogic.Rules;
@@ -6,6 +7,7 @@ namespace BattleTank.GameLogic.Rules;
 /// <summary>
 /// Shared context passed to IBattleRules. Holds references to GameRoom's internal collections.
 /// Rules may mutate PlayerKills, PlayerTeams, TeamScores, and RespawnQueue.
+/// Mutable collections are intentional: IBattleRules implementations write to them each tick.
 /// </summary>
 public class GameRoomState
 {
@@ -14,7 +16,7 @@ public class GameRoomState
     public Dictionary<int, int> PlayerKills { get; }
     public Dictionary<int, int> PlayerTeams { get; }
     public Dictionary<int, int> TeamScores { get; }
-    public Queue<(int PlayerId, uint RespawnTick)> RespawnQueue { get; }
+    public Queue<(int PlayerId, uint RespawnTick, Vector2 SpawnPos)> RespawnQueue { get; }
     public List<ControlPoint> ControlPoints { get; }
 
     public GameRoomState(
@@ -23,7 +25,7 @@ public class GameRoomState
         Dictionary<int, int> playerKills,
         Dictionary<int, int> playerTeams,
         Dictionary<int, int> teamScores,
-        Queue<(int, uint)> respawnQueue,
+        Queue<(int, uint, Vector2)> respawnQueue,
         List<ControlPoint> controlPoints)
     {
         Tanks = tanks;

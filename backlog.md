@@ -79,7 +79,33 @@
 - [ ] Kill feed (barre latérale "X a tué Y")
 - [ ] Mode spectateur pour les joueurs éliminés
 
-## Phase 6 — Ops
+## Phase 6 — Corrections qualité (code review)
+
+> Objectif : corriger les problèmes identifiés lors du code review du 2026-04-14.
+
+**Critique :**
+- [x] Refactorer les 9 dictionnaires joueur de `GameRoom` en une classe `PlayerSession` interne
+- [x] Remplacer l'accumulation float des scores dans `CaptureZoneRules` par une accumulation entière en ticks
+- [x] Corriger le reset cooldown de tir (`ExtraAmmo`) : `_lastFireTick = _currentTick - FireCooldownTicks + 1`
+
+**Majeurs :**
+- [x] Capturer la position de spawn à l'élimination (pas au déqueue du respawn)
+- [x] Homogénéiser le contrat de `GameRoomState` (tout readonly ou tout mutable)
+- [x] Supprimer le `?` injustifié sur `ControlPointSnapshot[]` dans `Protocol.cs`
+- [x] Ajouter des tests sur `GameRoom.TryFire()`
+- [x] Ajouter des tests sur le friendly fire dans `TickBullets()`
+- [x] Ajouter des tests d'intégration powerup (pickup → effet en jeu)
+- [x] Ajouter un test de stress (10 joueurs + max bullets simultanés)
+
+**Mineurs :**
+- [ ] Remplacer les magic numbers dans les tests par des constantes calculées (`Constants.TickRate * n`)
+- [x] Implémenter les builders dans `GameStateFixtures.cs`
+- [x] Convertir les tests de collision redondants en `[TestCase]` paramétrés
+- [x] Ajouter des tests négatifs (`deltaTime <= 0`, suppression joueur pendant respawn queue)
+- [x] Traduire les commentaires français dans `MapLayout.cs`
+- [x] Corriger le `default!` dans `Result<T>`
+
+## Phase 7 — Ops
 
 - [ ] Export Godot serveur headless (Linux)
 - [ ] Export Godot client (Windows/Linux/Mac)

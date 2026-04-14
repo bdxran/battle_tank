@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed (Phase 6 — quality corrections)
+
+- `GameRoom.cs` — refactored 4 internal per-player dictionaries (`AccountId`, `InputBuffer`, `LastInputSeq`, `LastFireTick`) into a single `PlayerSession` class; reduces dictionary count from 9 to 5
+- `GameRoom.cs` — fixed `ExtraAmmo` powerup cooldown reset: `_currentTick - FireCooldownTicks + 1` instead of `0` (semantically correct, safe against uint underflow at early ticks)
+- `GameRoom.cs` — spawn position is now captured at elimination time and stored in `RespawnQueue`, not computed at dequeue
+- `CaptureZoneRules.cs` — replaced float score accumulation (`_floatScores` dict) with integer tick increment (`state.TeamScores[team]++`) — no rounding drift
+- `Constants.cs` — `CaptureZoneScoreToWin` updated from 100 to 200 (equivalent 10s at 20 TPS with integer scoring)
+- `Protocol.cs` — removed nullable `?` from `ControlPointSnapshot[]` in `GameStateFull` and `GameStateDelta`; always non-null (empty array when no control points)
+- `GameRoomState.cs` — `RespawnQueue` type updated to `Queue<(int, uint, Vector2)>` to include spawn position
+- `MapLayout.cs` — translated French comments to English
+- `Result.cs` — documented `default!` usage in `Fail` constructor
+
+### Added (Phase 6 — tests)
+
+- `GameRoomTests.cs` — `TryFire_WhenCooldownActive_DoesNotFire`, `TryFire_AfterCooldownExpired_Fires`, `TickBullets_BattleRoyale_FriendlyFireEnabled_HitsAnyTank`
+- `GameRoomTests.cs` — `Powerup_Shield_HealsPlayer`, `Powerup_SpeedBoost_IncreasesSpeedMultiplier`
+- `GameRoomTests.cs` — `Tick_WithZeroDeltaTime_DoesNotCrash`, `RemovePlayer_WhileInRespawnQueue_DoesNotCrash` (negative/edge cases)
+- `GameRoomTests.cs` — `StressTests.StressTest_10Players_MaxBullets_NoException`
+- `CollisionSystemTests.cs` — `IsOutOfBounds` and `BulletHitsTank` converted to `[TestCase]` parametrized tests
+- `GameStateFixtures.cs` — added builder helpers: `CreateStartedRoom`, `Tank`, `AdvanceThroughLobby`, `AdvanceTicks`, `FireAndTick`
+- `SerializationTests.cs` — updated `GameStateFull_RoundTrip` and `GameStateDelta_RoundTrip` to pass `ControlPoints` argument
+
+Total tests: 136 (was 116)
+
 ### Added
 
 - `Tests/Rules/BattleRoyaleRulesTests.cs` — 7 tests couvrant mode, spawn, kill tracking, win condition (1 survivant, 0 survivant, plusieurs vivants), leaderboard

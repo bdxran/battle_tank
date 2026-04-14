@@ -35,7 +35,7 @@ public class ScoreTests
         // Fire 4 shots to kill (25 dmg each, 100 HP total), fire stays in input buffer
         float dt = 1f / Constants.TickRate;
         room.ApplyInput(1, new PlayerInput(1, InputFlags.Fire, 1));
-        for (int t = 0; t < 50; t++) // 50 ticks — enough for 4 shots at cooldown 10
+        for (int t = 0; t < Constants.TickRate * 3; t++) // 3s — enough for 4+ shots at 0.5s cooldown
             room.Tick(dt);
 
         var leaderboard = room.GetLeaderboard();

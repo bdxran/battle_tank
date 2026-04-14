@@ -7,6 +7,8 @@ public readonly struct Result<T>
     public string Error { get; }
 
     private Result(T value) { IsSuccess = true; Value = value; Error = string.Empty; }
+
+    // Value is default(T) when IsSuccess is false — callers must check IsSuccess before accessing Value.
     private Result(string error) { IsSuccess = false; Value = default!; Error = error; }
 
     public static Result<T> Ok(T value) => new(value);

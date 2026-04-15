@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `Godot/UI/PauseMenuNode.cs` — menu pause (CanvasLayer centré) avec boutons "Reprendre" et "Quitter", caché par défaut
+
+### Changed
+
+- `Godot/UI/TrainingOverlayNode.cs` — suppression du bouton "Quitter" et de l'event `QuitRequested` ; le quit passe désormais par le menu pause
+- `Godot/Nodes/ClientNode.cs` — détection de `ui_cancel` (Échap) en phase `InGame` pour ouvrir/fermer le menu pause ; en mode local le `LocalGameNode.Running` est mis en pause à l'ouverture et repris à la fermeture ; envoi d'input réseau bloqué quand le menu est visible
+
 ## [0.0.12] — 2026-04-14
 
 ### Added

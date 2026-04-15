@@ -25,12 +25,13 @@ public class TrainingRules : IBattleRules
     public int MinPlayersToStart => 1;
     public uint FireCooldownTicks => 5; // tir plus rapide en training
 
+    private int _spawnCounter;
+
     public void Initialize(GameRoomState state) { }
 
     public Vector2 GetSpawnPoint(int playerId, GameRoomState state)
     {
-        int index = state.Tanks.Count % SpawnPoints.Length;
-        return SpawnPoints[index];
+        return SpawnPoints[_spawnCounter++ % SpawnPoints.Length];
     }
 
     public void OnPlayerAdded(int playerId, GameRoomState state) { }
@@ -38,8 +39,7 @@ public class TrainingRules : IBattleRules
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
     {
         // Bots respawn quickly; human player respawns too so training is uninterrupted
-        var spawnIndex = state.Tanks.Count % SpawnPoints.Length;
-        var spawnPos = SpawnPoints[spawnIndex];
+        var spawnPos = SpawnPoints[_spawnCounter++ % SpawnPoints.Length];
         uint respawnTick = currentTick + Constants.DeathmatchRespawnDelayTicks;
         state.RespawnQueue.Enqueue((eliminatedId, respawnTick, spawnPos));
     }

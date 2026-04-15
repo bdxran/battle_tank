@@ -20,10 +20,17 @@ public partial class HostSetupScreen : CanvasLayer
 
     public override void _Ready()
     {
+        var root = new Control();
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(root);
+
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(center);
+
         var panel = new PanelContainer();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
         panel.CustomMinimumSize = new Vector2(320, 240);
-        AddChild(panel);
+        center.AddChild(panel);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 10);

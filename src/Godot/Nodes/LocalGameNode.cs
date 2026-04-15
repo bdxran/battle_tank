@@ -29,6 +29,7 @@ public partial class LocalGameNode : Node, IGameStateProvider
     private uint _inputSeq;
     private bool _firstTick = true;
     private bool _gameOver;
+    public bool Running { get; set; } = false;
 
     public void Initialize(GameMode mode, string nickname)
     {
@@ -51,11 +52,17 @@ public partial class LocalGameNode : Node, IGameStateProvider
             if (!result.IsSuccess)
                 break;
         }
+
+        // Emit initial state so the renderer can display the map before the countdown ends
+        var full = _room.GetFullState();
+        _lastAckedTick = full.SequenceNumber;
+        _firstTick = false;
+        GameStateFullReceived?.Invoke(full);
     }
 
     public override void _Process(double delta)
     {
-        if (_room is null || _gameOver) return;
+        if (_room is null || _gameOver || !Running) return;
 
         _accumulator += (float)delta;
         while (_accumulator >= TickInterval)
@@ -68,8 +75,7 @@ public partial class LocalGameNode : Node, IGameStateProvider
     private void DoTick()
     {
         var flags = ReadInput();
-        if (flags != InputFlags.None)
-            _room.ApplyInput(LocalPlayerId, new PlayerInput(LocalPlayerId, flags, ++_inputSeq));
+        _room.ApplyInput(LocalPlayerId, new PlayerInput(LocalPlayerId, flags, ++_inputSeq));
 
         _room.Tick(TickInterval);
 

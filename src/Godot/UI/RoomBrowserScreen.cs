@@ -33,10 +33,17 @@ public partial class RoomBrowserScreen : CanvasLayer
         AddChild(_discovery);
         _discovery.StartListening();
 
+        var root = new Control();
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(root);
+
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddChild(center);
+
         var panel = new PanelContainer();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
         panel.CustomMinimumSize = new Vector2(420, 340);
-        AddChild(panel);
+        center.AddChild(panel);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 8);

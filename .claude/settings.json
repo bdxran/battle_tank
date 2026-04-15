@@ -1,0 +1,26 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/randy/perso/battle_tank/.claude/hooks/session-start.sh",
+            "statusMessage": "Chargement des règles workflow..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/randy/perso/battle_tank/.claude/hooks/workflow-guard.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

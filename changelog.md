@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Godot/UI/PauseMenuNode.cs` — menu pause (CanvasLayer centré) avec boutons "Reprendre" et "Quitter", caché par défaut
 
+### Fixed
+
+- `LocalGameNode` / `GameRoomNode` — spiral of death dans la boucle d'accumulation de ticks : cap à 5 ticks par frame + remise à zéro de l'accumulateur en cas de retard excessif, évitant le freeze du jeu et du PC en mode solo/entraînement
+
 ### Changed
 
 - `Godot/UI/TrainingOverlayNode.cs` — suppression du bouton "Quitter" et de l'event `QuitRequested` ; le quit passe désormais par le menu pause

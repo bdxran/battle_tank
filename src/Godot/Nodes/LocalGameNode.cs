@@ -16,6 +16,7 @@ namespace BattleTank.Godot.Nodes;
 public partial class LocalGameNode : Node, IGameStateProvider
 {
     private const float TickInterval = 1f / Constants.TickRate;
+    private const int MaxTicksPerFrame = 5;
     public const int LocalPlayerId = 1;
 
     public event Action<GameStateFull>? GameStateFullReceived;
@@ -65,11 +66,16 @@ public partial class LocalGameNode : Node, IGameStateProvider
         if (_room is null || _gameOver || !Running) return;
 
         _accumulator += (float)delta;
-        while (_accumulator >= TickInterval)
+        int ticks = 0;
+        while (_accumulator >= TickInterval && ticks < MaxTicksPerFrame)
         {
             _accumulator -= TickInterval;
             DoTick();
+            ticks++;
         }
+        // Prevent spiral of death: discard excess if we can't keep up
+        if (_accumulator > TickInterval)
+            _accumulator = 0f;
     }
 
     private void DoTick()

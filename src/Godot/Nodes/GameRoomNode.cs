@@ -14,6 +14,7 @@ namespace BattleTank.Godot.Nodes;
 public partial class GameRoomNode : Node
 {
     private const float TickInterval = 1f / Constants.TickRate;
+    private const int MaxTicksPerFrame = 5;
 
     private ILogger<GameRoomNode> _logger = null!;
     private GameRoom _room = null!;
@@ -79,11 +80,16 @@ public partial class GameRoomNode : Node
         if (_room is null) return;
 
         _accumulator += (float)delta;
-        while (_accumulator >= TickInterval)
+        int ticks = 0;
+        while (_accumulator >= TickInterval && ticks < MaxTicksPerFrame)
         {
             _accumulator -= TickInterval;
             DoTick();
+            ticks++;
         }
+        // Prevent spiral of death: discard excess if we can't keep up
+        if (_accumulator > TickInterval)
+            _accumulator = 0f;
     }
 
     public override void _ExitTree()

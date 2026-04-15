@@ -342,6 +342,17 @@ public partial class GameRoom
         }
     }
 
+    /// <summary>
+    /// Skips the lobby countdown and starts the game immediately.
+    /// Intended for local/offline games where the countdown is handled externally (e.g. Godot CountdownNode).
+    /// </summary>
+    public void ForceStart()
+    {
+        if (_phase != GamePhase.Lobby) return;
+        _phase = GamePhase.InProgress;
+        _gameStartTick = _currentTick;
+    }
+
     private void CheckPhaseTransition()
     {
         if (_phase == GamePhase.WaitingForPlayers && _tanks.Count >= _rules.MinPlayersToStart)

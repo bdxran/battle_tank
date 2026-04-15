@@ -15,10 +15,17 @@ public partial class PauseMenuNode : CanvasLayer
 
     public override void _Ready()
     {
+        var fullRect = new Control();
+        fullRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(fullRect);
+
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        fullRect.AddChild(center);
+
         var panel = new PanelContainer();
-        panel.SetAnchorsPreset(Control.LayoutPreset.Center);
         panel.CustomMinimumSize = new Vector2(220, 0);
-        AddChild(panel);
+        center.AddChild(panel);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 10);

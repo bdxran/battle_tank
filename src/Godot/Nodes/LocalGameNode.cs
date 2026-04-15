@@ -54,6 +54,9 @@ public partial class LocalGameNode : Node, IGameStateProvider
                 break;
         }
 
+        // Skip the lobby countdown: the Godot CountdownNode handles the visual countdown
+        _room.ForceStart();
+
         // Emit initial state so the renderer can display the map before the countdown ends
         var full = _room.GetFullState();
         _lastAckedTick = full.SequenceNumber;

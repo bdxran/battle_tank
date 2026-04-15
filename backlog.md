@@ -161,6 +161,11 @@
 - [x] `RoomBrowserScreen` → `ClientNode.ConnectTo(ip, port)` → `LoginScreen` existante inchangée
 - [x] `RoomPasswordScreen` : demande le code si la partie est protégée
 
+## Bugfixes
+
+- [x] ESC n'ouvre pas le menu pause en mode solo (`ClientNode._gamePhase == Solo` ignoré)
+- [x] Délai de ~3s après le GO avant de pouvoir bouger (double countdown : Godot + GameRoom lobby)
+
 ## Phase 10 — Assets & Polish artistique
 
 > Objectif : Remplacer le rendu procédural par de vrais assets visuels et sonores.

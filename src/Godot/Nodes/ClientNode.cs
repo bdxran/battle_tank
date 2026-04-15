@@ -168,7 +168,7 @@ public partial class ClientNode : Node
 
     public override void _Process(double delta)
     {
-        if (_gamePhase == GamePhase.InGame && Input.IsActionJustPressed("ui_cancel"))
+        if ((_gamePhase == GamePhase.InGame || _gamePhase == GamePhase.Solo) && Input.IsActionJustPressed("ui_cancel"))
         {
             if (_pauseMenu.Visible)
                 OnPauseMenuResume();
@@ -302,6 +302,7 @@ public partial class ClientNode : Node
         _localGameNode.Running = false;
         AddChild(_localGameNode);
 
+        _renderer.Show();
         _renderer.Initialize(_localGameNode, _hud, LocalGameNode.LocalPlayerId);
         _hud.Show();
 
@@ -429,9 +430,20 @@ public partial class ClientNode : Node
             _localGameNode.Running = true;
     }
 
-    private static void OnQuitRequested()
+    private void OnQuitRequested()
     {
-        (Engine.GetMainLoop() as SceneTree)?.Quit();
+        _pauseMenu.Hide();
+        _hud.Hide();
+        _renderer.Hide();
+
+        if (_localGameNode != null)
+        {
+            _localGameNode.QueueFree();
+            _localGameNode = null;
+        }
+
+        _gamePhase = GamePhase.MainMenu;
+        _soloModeScreen.Show();
     }
 
     private void OnLoginRequested(string username, string password)

@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- ESC n'ouvrait pas le menu pause en mode solo (`_gamePhase` était `Solo`, pas `InGame`) — condition élargie dans `ClientNode._Process()`
+- Délai de ~3s après le "GO!" avant de pouvoir bouger — lobby countdown interne de `GameRoom` ne s'écoulait pas pendant le décompte Godot ; ajout de `GameRoom.ForceStart()` pour passer directement en `InProgress`
+- Menu pause non centré — ajout d'un `Control` plein écran + `CenterContainer` dans `PauseMenuNode` (même pattern que `CountdownNode`)
+- "Quitter" depuis le menu pause quittait l'application — remplacé par un retour vers `SoloModeScreen`
+- L'écran de jeu restait visible après avoir quitté via le menu pause — `GameRenderer` masqué au quit, réaffiché au démarrage de partie
 - `LocalGameNode` / `GameRoomNode` — spiral of death dans la boucle d'accumulation de ticks : cap à 5 ticks par frame + remise à zéro de l'accumulateur en cas de retard excessif, évitant le freeze du jeu et du PC en mode solo/entraînement
 
 ### Changed

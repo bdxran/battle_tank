@@ -37,13 +37,16 @@ public partial class GameRoom
     private readonly Dictionary<int, string> _playerNicknames;
     private readonly Dictionary<int, int> _playerKills;
     private readonly Dictionary<int, int> _playerDeaths;
+    private readonly Dictionary<int, int> _playerAssists;
+    private readonly Dictionary<int, int> _playerZoneCaptured;
+    private readonly Dictionary<int, HashSet<int>> _damageContributors;
     private readonly Dictionary<int, int> _playerTeams;
     private readonly Dictionary<int, int> _teamScores;
     private readonly Dictionary<int, PlayerSession> _playerSessions;
     private readonly List<BulletEntity> _bullets;
     private readonly List<PowerupEntity> _powerups;
     private readonly List<ControlPoint> _controlPoints;
-    private readonly Queue<(int PlayerId, uint RespawnTick, Vector2 SpawnPos)> _respawnQueue;
+    private readonly Queue<(int PlayerId, uint RespawnTick)> _respawnQueue;
     private readonly ZoneController _zone;
     private readonly List<Elimination> _pendingEliminations;
     private readonly GameRoomState _state;
@@ -79,20 +82,24 @@ public partial class GameRoom
         _playerNicknames = new Dictionary<int, string>();
         _playerKills = new Dictionary<int, int>();
         _playerDeaths = new Dictionary<int, int>();
+        _playerAssists = new Dictionary<int, int>();
+        _playerZoneCaptured = new Dictionary<int, int>();
+        _damageContributors = new Dictionary<int, HashSet<int>>();
         _playerTeams = new Dictionary<int, int>();
         _teamScores = new Dictionary<int, int>();
         _playerSessions = new Dictionary<int, PlayerSession>();
         _bullets = new List<BulletEntity>();
         _powerups = new List<PowerupEntity>();
         _controlPoints = new List<ControlPoint>();
-        _respawnQueue = new Queue<(int, uint, Vector2)>();
+        _respawnQueue = new Queue<(int, uint)>();
         _zone = new ZoneController();
         _pendingEliminations = new List<Elimination>();
         _phase = GamePhase.WaitingForPlayers;
 
         _state = new GameRoomState(
-            _tanks, _playerNicknames, _playerKills, _playerDeaths, _playerTeams,
-            _teamScores, _respawnQueue, _controlPoints);
+            _tanks, _playerNicknames, _playerKills, _playerDeaths,
+            _playerAssists, _playerZoneCaptured,
+            _playerTeams, _teamScores, _respawnQueue, _controlPoints);
 
         _rules.Initialize(_state);
     }
@@ -238,6 +245,7 @@ public partial class GameRoom
                 var flags = session.InputBuffer;
                 tank.ApplyInput(flags, deltaTime);
                 tank.TickSpeedBoost(_currentTick);
+                tank.TickInvincibility(_currentTick);
 
                 if ((flags & InputFlags.Fire) != 0)
                     TryFire(session, tank);
@@ -293,6 +301,9 @@ public partial class GameRoom
         _playerNicknames.Clear();
         _playerKills.Clear();
         _playerDeaths.Clear();
+        _playerAssists.Clear();
+        _playerZoneCaptured.Clear();
+        _damageContributors.Clear();
         _playerTeams.Clear();
         _teamScores.Clear();
         _playerSessions.Clear();
@@ -343,10 +354,11 @@ public partial class GameRoom
     {
         while (_respawnQueue.Count > 0 && _respawnQueue.Peek().RespawnTick <= _currentTick)
         {
-            var (playerId, _, spawnPos) = _respawnQueue.Dequeue();
+            var (playerId, _) = _respawnQueue.Dequeue();
             if (_tanks.TryGetValue(playerId, out var tank))
             {
-                tank.Respawn(spawnPos);
+                var spawnPos = _rules.GetSpawnPoint(playerId, _state);
+                tank.Respawn(spawnPos, _currentTick);
                 _logger.LogInformation("Player {PlayerId} respawned at {SpawnPos}", playerId, spawnPos);
             }
         }

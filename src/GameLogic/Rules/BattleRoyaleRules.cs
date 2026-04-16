@@ -33,6 +33,7 @@ public class BattleRoyaleRules : IBattleRules
     {
         state.PlayerTeams[playerId] = -1;
         state.PlayerDeaths[playerId] = 0;
+        state.PlayerAssists[playerId] = 0;
     }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)

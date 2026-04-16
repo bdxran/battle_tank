@@ -40,6 +40,7 @@ public class DeathmatchRules : IBattleRules
     {
         state.PlayerTeams[playerId] = -1;
         state.PlayerDeaths[playerId] = 0;
+        state.PlayerAssists[playerId] = 0;
     }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
@@ -50,8 +51,7 @@ public class DeathmatchRules : IBattleRules
         if (state.PlayerDeaths.ContainsKey(eliminatedId))
             state.PlayerDeaths[eliminatedId]++;
 
-        var spawnPos = GetSpawnPoint(eliminatedId, state);
-        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.DeathmatchRespawnDelayTicks, spawnPos));
+        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.DeathmatchRespawnDelayTicks));
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state)
@@ -90,7 +90,8 @@ public class DeathmatchRules : IBattleRules
         {
             var nickname = state.PlayerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
             int deaths = state.PlayerDeaths.TryGetValue(id, out var d) ? d : 0;
-            infos.Add(new PlayerInfo(id, nickname, kills, -1, deaths));
+            int assists = state.PlayerAssists.TryGetValue(id, out var a) ? a : 0;
+            infos.Add(new PlayerInfo(id, nickname, kills, -1, deaths, assists));
         }
         infos.Sort((a, b) => b.Kills.CompareTo(a.Kills));
         return infos.ToArray();

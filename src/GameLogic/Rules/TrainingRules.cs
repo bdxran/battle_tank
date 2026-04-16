@@ -38,6 +38,7 @@ public class TrainingRules : IBattleRules
     public void OnPlayerAdded(int playerId, GameRoomState state)
     {
         state.PlayerDeaths[playerId] = 0;
+        state.PlayerAssists[playerId] = 0;
     }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
@@ -45,10 +46,7 @@ public class TrainingRules : IBattleRules
         if (state.PlayerDeaths.ContainsKey(eliminatedId))
             state.PlayerDeaths[eliminatedId]++;
 
-        // Bots respawn quickly; human player respawns too so training is uninterrupted
-        var spawnPos = SpawnPoints[_spawnCounter++ % SpawnPoints.Length];
-        uint respawnTick = currentTick + Constants.DeathmatchRespawnDelayTicks;
-        state.RespawnQueue.Enqueue((eliminatedId, respawnTick, spawnPos));
+        state.RespawnQueue.Enqueue((eliminatedId, currentTick + Constants.DeathmatchRespawnDelayTicks));
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state) { }

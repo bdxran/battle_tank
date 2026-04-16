@@ -83,5 +83,7 @@ public record PlayerInfo(
     [property: Key(1)] string Nickname,
     [property: Key(2)] int Kills,
     [property: Key(3)] int TeamId = -1,
-    [property: Key(4)] int Deaths = 0
+    [property: Key(4)] int Deaths = 0,
+    [property: Key(5)] int Assists = 0,
+    [property: Key(6)] int ZoneCaptures = 0
 );

@@ -36,16 +36,19 @@ public partial class ScoreboardOverlay : CanvasLayer
         };
         vbox.AddChild(title);
 
-        _grid = new GridContainer { Columns = 4 };
+        _grid = new GridContainer { Columns = 5 };
         vbox.AddChild(_grid);
     }
 
     public void UpdateFrom(PlayerInfo[] players, int[] teamScores, GameMode mode)
     {
+        bool showZones = mode == GameMode.CaptureZone;
+        _grid.Columns = showZones ? 6 : 5;
+
         foreach (Node child in _grid.GetChildren())
             child.QueueFree();
 
-        AddHeader();
+        AddHeader(showZones);
 
         bool grouped = (mode == GameMode.CaptureZone || mode == GameMode.Teams)
                        && teamScores is { Length: >= 2 };
@@ -58,31 +61,33 @@ public partial class ScoreboardOverlay : CanvasLayer
                     ? teamScores[team].ToString()
                     : "0";
                 string teamName = team == 0 ? "Equipe Bleue" : "Equipe Rouge";
-                AddSeparatorRow($"{teamName}  [{teamScore} pts]");
+                AddSeparatorRow($"{teamName}  [{teamScore} pts]", showZones);
 
                 foreach (var p in players)
                 {
                     if (p.TeamId == team)
-                        AddPlayerRow(p);
+                        AddPlayerRow(p, showZones);
                 }
             }
         }
         else
         {
             foreach (var p in players)
-                AddPlayerRow(p);
+                AddPlayerRow(p, showZones);
         }
     }
 
-    private void AddHeader()
+    private void AddHeader(bool showZones)
     {
         AddCell("Joueur");
         AddCell("Kills");
+        AddCell("Assists");
         AddCell("Morts");
         AddCell("Ratio");
+        if (showZones) AddCell("Zones");
     }
 
-    private void AddSeparatorRow(string label)
+    private void AddSeparatorRow(string label, bool showZones)
     {
         var lbl = new Label
         {
@@ -90,17 +95,20 @@ public partial class ScoreboardOverlay : CanvasLayer
             HorizontalAlignment = HorizontalAlignment.Left,
         };
         _grid.AddChild(lbl);
-        for (int i = 0; i < 3; i++)
+        int extraCols = showZones ? 4 : 3;
+        for (int i = 0; i < extraCols; i++)
             _grid.AddChild(new Label { Text = "" });
     }
 
-    private void AddPlayerRow(PlayerInfo p)
+    private void AddPlayerRow(PlayerInfo p, bool showZones)
     {
         float ratio = p.Deaths == 0 ? p.Kills : (float)p.Kills / p.Deaths;
         AddCell(p.Nickname);
         AddCell(p.Kills.ToString());
+        AddCell(p.Assists.ToString());
         AddCell(p.Deaths.ToString());
         AddCell(ratio.ToString("F1"));
+        if (showZones) AddCell(p.ZoneCaptures.ToString());
     }
 
     private void AddCell(string text)

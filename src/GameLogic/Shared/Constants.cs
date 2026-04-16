@@ -38,6 +38,8 @@ public static class Constants
     public const int ShieldHealAmount = 25;
     public const float PowerupRadius = 15f;
 
+    public const int RespawnInvincibilityTicks = 60; // 3s at 20 TPS
+
     // Deathmatch
     public const int DeathmatchDurationTicks = 3600;   // 3 min at 20 TPS
     public const int DeathmatchRespawnDelayTicks = 60; // 3s at 20 TPS

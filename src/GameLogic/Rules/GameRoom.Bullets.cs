@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Microsoft.Extensions.Logging;
 using BattleTank.GameLogic.Entities;
@@ -69,8 +70,27 @@ public partial class GameRoom
                 bullet.Kill();
                 _logger.LogDebug("Bullet {BulletId} hit tank {TankId}", bullet.Id, tank.Id);
 
+                if (wasAlive && tank.IsAlive && bullet.OwnerId != tank.Id)
+                {
+                    if (!_damageContributors.TryGetValue(tank.Id, out var contributors))
+                    {
+                        contributors = new HashSet<int>();
+                        _damageContributors[tank.Id] = contributors;
+                    }
+                    contributors.Add(bullet.OwnerId);
+                }
+
                 if (wasAlive && !tank.IsAlive)
                 {
+                    if (_damageContributors.TryGetValue(tank.Id, out var contributors))
+                    {
+                        foreach (int contributorId in contributors)
+                        {
+                            if (contributorId != bullet.OwnerId && _playerAssists.ContainsKey(contributorId))
+                                _playerAssists[contributorId]++;
+                        }
+                        _damageContributors.Remove(tank.Id);
+                    }
                     _pendingEliminations.Add(new Elimination(tank.Id, bullet.OwnerId));
                     _rules.OnElimination(tank.Id, bullet.OwnerId, _currentTick, _state);
                 }

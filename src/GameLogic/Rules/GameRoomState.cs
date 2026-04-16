@@ -15,9 +15,11 @@ public class GameRoomState
     public IReadOnlyDictionary<int, string> PlayerNicknames { get; }
     public Dictionary<int, int> PlayerKills { get; }
     public Dictionary<int, int> PlayerDeaths { get; }
+    public Dictionary<int, int> PlayerAssists { get; }
+    public Dictionary<int, int> PlayerZoneCaptured { get; }
     public Dictionary<int, int> PlayerTeams { get; }
     public Dictionary<int, int> TeamScores { get; }
-    public Queue<(int PlayerId, uint RespawnTick, Vector2 SpawnPos)> RespawnQueue { get; }
+    public Queue<(int PlayerId, uint RespawnTick)> RespawnQueue { get; }
     public List<ControlPoint> ControlPoints { get; }
 
     public GameRoomState(
@@ -25,15 +27,19 @@ public class GameRoomState
         IReadOnlyDictionary<int, string> playerNicknames,
         Dictionary<int, int> playerKills,
         Dictionary<int, int> playerDeaths,
+        Dictionary<int, int> playerAssists,
+        Dictionary<int, int> playerZoneCaptured,
         Dictionary<int, int> playerTeams,
         Dictionary<int, int> teamScores,
-        Queue<(int, uint, Vector2)> respawnQueue,
+        Queue<(int, uint)> respawnQueue,
         List<ControlPoint> controlPoints)
     {
         Tanks = tanks;
         PlayerNicknames = playerNicknames;
         PlayerKills = playerKills;
         PlayerDeaths = playerDeaths;
+        PlayerAssists = playerAssists;
+        PlayerZoneCaptured = playerZoneCaptured;
         PlayerTeams = playerTeams;
         TeamScores = teamScores;
         RespawnQueue = respawnQueue;

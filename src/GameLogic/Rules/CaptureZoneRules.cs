@@ -25,6 +25,7 @@ public class CaptureZoneRules : IBattleRules
     private int _ticksRemaining;
     private bool _gameOver;
     private GameOverResult? _result;
+    private int?[] _previousControllingTeam = [];
 
     public GameMode Mode => GameMode.CaptureZone;
     public bool IsFriendlyFireEnabled => false;
@@ -43,6 +44,8 @@ public class CaptureZoneRules : IBattleRules
         state.ControlPoints.Clear();
         for (int i = 0; i < ControlPointPositions.Length; i++)
             state.ControlPoints.Add(new ControlPoint(i, ControlPointPositions[i], Constants.ControlPointRadius));
+
+        _previousControllingTeam = new int?[ControlPointPositions.Length];
     }
 
     public Vector2 GetSpawnPoint(int playerId, GameRoomState state)
@@ -63,6 +66,8 @@ public class CaptureZoneRules : IBattleRules
         int assignedTeam = team0Count <= team1Count ? 0 : 1;
         state.PlayerTeams[playerId] = assignedTeam;
         state.PlayerDeaths[playerId] = 0;
+        state.PlayerAssists[playerId] = 0;
+        state.PlayerZoneCaptured[playerId] = 0;
 
         if (!state.TeamScores.ContainsKey(0)) state.TeamScores[0] = 0;
         if (!state.TeamScores.ContainsKey(1)) state.TeamScores[1] = 0;
@@ -76,8 +81,7 @@ public class CaptureZoneRules : IBattleRules
         if (state.PlayerDeaths.ContainsKey(eliminatedId))
             state.PlayerDeaths[eliminatedId]++;
 
-        var spawnPos = GetSpawnPoint(eliminatedId, state);
-        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.CaptureZoneRespawnDelayTicks, spawnPos));
+        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.CaptureZoneRespawnDelayTicks));
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state)
@@ -86,7 +90,14 @@ public class CaptureZoneRules : IBattleRules
 
         foreach (var cp in state.ControlPoints)
         {
+            int? prevTeam = _previousControllingTeam[cp.Id];
             int? scoringTeam = cp.Tick(state.Tanks, deltaTime);
+
+            if (cp.ControllingTeamId.HasValue && cp.ControllingTeamId != prevTeam)
+                AwardZoneCaptureToPlayersInZone(cp, cp.ControllingTeamId.Value, state);
+
+            _previousControllingTeam[cp.Id] = cp.ControllingTeamId;
+
             if (scoringTeam.HasValue && state.TeamScores.ContainsKey(scoringTeam.Value))
             {
                 int team = scoringTeam.Value;
@@ -125,7 +136,9 @@ public class CaptureZoneRules : IBattleRules
             var nickname = state.PlayerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
             int teamId = state.PlayerTeams.TryGetValue(id, out var t) ? t : -1;
             int deaths = state.PlayerDeaths.TryGetValue(id, out var d) ? d : 0;
-            infos.Add(new PlayerInfo(id, nickname, kills, teamId, deaths));
+            int assists = state.PlayerAssists.TryGetValue(id, out var a) ? a : 0;
+            int zoneCaps = state.PlayerZoneCaptured.TryGetValue(id, out var z) ? z : 0;
+            infos.Add(new PlayerInfo(id, nickname, kills, teamId, deaths, assists, zoneCaps));
         }
         infos.Sort((a, b) =>
         {
@@ -135,6 +148,19 @@ public class CaptureZoneRules : IBattleRules
             return b.Kills.CompareTo(a.Kills);
         });
         return infos.ToArray();
+    }
+
+    private static void AwardZoneCaptureToPlayersInZone(ControlPoint cp, int team, GameRoomState state)
+    {
+        foreach (var (id, tank) in state.Tanks)
+        {
+            if (!tank.IsAlive) continue;
+            if (!state.PlayerTeams.TryGetValue(id, out int playerTeam) || playerTeam != team) continue;
+            float dx = tank.Position.X - cp.Position.X;
+            float dy = tank.Position.Y - cp.Position.Y;
+            if (dx * dx + dy * dy <= cp.Radius * cp.Radius)
+                state.PlayerZoneCaptured[id]++;
+        }
     }
 
     private GameOverResult BuildResult(int winnerTeamId, GameRoomState state)

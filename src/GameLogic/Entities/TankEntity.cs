@@ -9,6 +9,7 @@ public class TankEntity
 {
     private int _health;
     private uint _speedBoostExpiry;
+    private uint _invincibilityExpiry;
 
     public int Id { get; }
     public int TeamId { get; set; } = -1;
@@ -17,6 +18,7 @@ public class TankEntity
     public int Health => _health;
     public bool IsAlive => _health > 0;
     public bool IsEliminated { get; private set; }
+    public bool IsInvincible => _invincibilityExpiry > 0;
     public float SpeedMultiplier { get; private set; } = 1f;
 
     public TankEntity(int id, Vector2 position)
@@ -48,20 +50,27 @@ public class TankEntity
 
     public void TakeDamage(int amount)
     {
-        if (!IsAlive) return;
+        if (!IsAlive || _invincibilityExpiry > 0) return;
         _health = Math.Max(0, _health - amount);
         if (_health == 0)
             IsEliminated = true;
     }
 
-    public void Respawn(Vector2 position)
+    public void Respawn(Vector2 position, uint currentTick)
     {
         _health = Constants.TankMaxHealth;
         IsEliminated = false;
         SpeedMultiplier = 1f;
         _speedBoostExpiry = 0;
+        _invincibilityExpiry = currentTick + Constants.RespawnInvincibilityTicks;
         Position = position;
         Rotation = 0f;
+    }
+
+    public void TickInvincibility(uint currentTick)
+    {
+        if (_invincibilityExpiry > 0 && currentTick >= _invincibilityExpiry)
+            _invincibilityExpiry = 0;
     }
 
     public void Heal(int amount)

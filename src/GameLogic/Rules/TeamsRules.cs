@@ -54,6 +54,7 @@ public class TeamsRules : IBattleRules
         int assignedTeam = team0Count <= team1Count ? 0 : 1;
         state.PlayerTeams[playerId] = assignedTeam;
         state.PlayerDeaths[playerId] = 0;
+        state.PlayerAssists[playerId] = 0;
 
         if (!state.TeamScores.ContainsKey(assignedTeam))
             state.TeamScores[assignedTeam] = 0;
@@ -109,7 +110,8 @@ public class TeamsRules : IBattleRules
         {
             var nickname = state.PlayerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
             int teamId = state.PlayerTeams.TryGetValue(id, out var t) ? t : -1;
-            infos.Add(new PlayerInfo(id, nickname, kills, teamId));
+            int assists = state.PlayerAssists.TryGetValue(id, out var a) ? a : 0;
+            infos.Add(new PlayerInfo(id, nickname, kills, teamId, 0, assists));
         }
         // Sort by team, then kills descending
         infos.Sort((a, b) =>

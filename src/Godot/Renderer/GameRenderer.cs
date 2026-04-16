@@ -26,6 +26,11 @@ public partial class GameRenderer : Node2D
     private Camera2D _camera = null!;
     private int _localPlayerId;
     private bool _spectating;
+    private GameMode _gameMode;
+    private int _ticksRemaining;
+    private int[] _teamScores = [];
+    private int _localKills;
+    private int _localDeaths;
 
     public event Action? BulletCreated;
     public event Action? TankHit;
@@ -62,6 +67,11 @@ public partial class GameRenderer : Node2D
         _network = network;
         _hud = hud;
         _localPlayerId = localPlayerId;
+        _localKills = 0;
+        _localDeaths = 0;
+        _ticksRemaining = 0;
+        _teamScores = [];
+        _gameMode = GameMode.BattleRoyale;
 
         _hud.Initialize(localPlayerId);
 
@@ -106,10 +116,18 @@ public partial class GameRenderer : Node2D
 
     private void OnGameStateFull(GameStateFull state)
     {
+        _gameMode = state.Mode;
+        _ticksRemaining = state.TicksRemaining;
+        _teamScores = state.TeamScores ?? [];
+
         // Build team map from player info so TankNodes can be coloured correctly
         _playerTeamMap.Clear();
         foreach (var player in state.Players)
+        {
             _playerTeamMap[player.Id] = player.TeamId;
+            if (player.Id == _localPlayerId)
+                _localKills = player.Kills;
+        }
         _localTeamId = _playerTeamMap.TryGetValue(_localPlayerId, out int lt) ? lt : -1;
         _hud.SetTeamInfo(_localTeamId, _playerTeamMap);
 
@@ -137,6 +155,10 @@ public partial class GameRenderer : Node2D
 
     private void OnGameStateDelta(GameStateDelta state)
     {
+        _ticksRemaining = state.TicksRemaining;
+        if (state.TeamScores is { Length: > 0 })
+            _teamScores = state.TeamScores;
+
         foreach (var snapshot in state.Tanks)
         {
             if (_tankNodes.TryGetValue(snapshot.Id, out var node))
@@ -216,6 +238,8 @@ public partial class GameRenderer : Node2D
     private void OnPlayerEliminated(PlayerEliminatedMessage msg)
     {
         _killFeed.AddEntry(msg.EliminatedPlayerId, msg.KillerPlayerId);
+        if (msg.KillerPlayerId == _localPlayerId) _localKills++;
+        if (msg.EliminatedPlayerId == _localPlayerId) _localDeaths++;
     }
 
     private void UpdateHud(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)
@@ -233,6 +257,8 @@ public partial class GameRenderer : Node2D
 
         _hud.UpdateHealth(localHealth);
         _hud.UpdateAliveCount(aliveCount);
+        _hud.UpdateTimer(_ticksRemaining);
+        _hud.UpdateScore(_teamScores, _localKills, _localDeaths, _gameMode);
         _hud.UpdateMinimap(tanks, zone, controlPoints);
     }
 

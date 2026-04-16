@@ -9,7 +9,8 @@ using BattleTank.GameLogic.Shared;
 namespace BattleTank.GameLogic.AI;
 
 /// <summary>
-/// Simple bot: roams randomly and rotates toward the nearest enemy to shoot it.
+/// Simple bot: roams randomly, rotates toward the nearest enemy to shoot it.
+/// In modes with control points, also moves toward uncaptured or enemy-held zones.
 /// Changes movement direction every ~2 seconds.
 /// </summary>
 public sealed class SimpleBot : IBot
@@ -34,7 +35,10 @@ public sealed class SimpleBot : IBot
         _movementFlags = PickRandomMovement();
     }
 
-    public InputFlags ComputeInput(IReadOnlyDictionary<int, TankEntity> tanks, uint currentTick)
+    public InputFlags ComputeInput(
+        IReadOnlyDictionary<int, TankEntity> tanks,
+        IReadOnlyList<ControlPoint> controlPoints,
+        uint currentTick)
     {
         if (!tanks.TryGetValue(PlayerId, out var self) || !self.IsAlive)
             return InputFlags.None;
@@ -65,29 +69,40 @@ public sealed class SimpleBot : IBot
             _nextMovementChangeTick = currentTick + MovementChangeTicks;
         }
 
+        // Determine base movement: zone-directed when available, random otherwise
+        ControlPoint? zone = FindValuableZone(self, controlPoints);
+        InputFlags baseMovement;
+        if (zone != null)
+        {
+            float angleToZone = AngleTo(self.Position, zone.Position);
+            float zoneDelta = NormalizeAngleDelta(angleToZone - self.Rotation);
+            baseMovement = InputFlags.MoveForward;
+            if (Math.Abs(zoneDelta) > AimToleranceDegrees)
+                baseMovement |= zoneDelta < 0 ? InputFlags.RotateLeft : InputFlags.RotateRight;
+        }
+        else
+        {
+            baseMovement = _movementFlags;
+        }
+
+        // Overlay enemy aiming on top of zone movement (rotation override, keep forward)
         var target = FindNearestEnemy(self, tanks);
-        if (target == null)
-            return _movementFlags;
-
-        float angleToTarget = AngleTo(self.Position, target.Position);
-        float delta = NormalizeAngleDelta(angleToTarget - self.Rotation);
-
-        InputFlags flags = _movementFlags;
-
-        // Rotate toward target
-        if (Math.Abs(delta) > AimToleranceDegrees)
+        if (target != null)
         {
-            flags = delta < 0
-                ? (flags | InputFlags.RotateLeft)
-                : (flags | InputFlags.RotateRight);
-        }
-        else if (CollisionSystem.HasLineOfSight(self.Position, target.Position, MapLayout.Walls))
-        {
-            // Aimed and line of sight is clear: fire
-            flags |= InputFlags.Fire;
+            float angleToTarget = AngleTo(self.Position, target.Position);
+            float delta = NormalizeAngleDelta(angleToTarget - self.Rotation);
+
+            InputFlags flags = baseMovement & ~InputFlags.RotateLeft & ~InputFlags.RotateRight;
+
+            if (Math.Abs(delta) > AimToleranceDegrees)
+                flags |= delta < 0 ? InputFlags.RotateLeft : InputFlags.RotateRight;
+            else if (CollisionSystem.HasLineOfSight(self.Position, target.Position, MapLayout.Walls))
+                flags |= InputFlags.Fire;
+
+            return flags;
         }
 
-        return flags;
+        return baseMovement;
     }
 
     private InputFlags PickRandomMovement()
@@ -109,7 +124,7 @@ public sealed class SimpleBot : IBot
         foreach (var (id, tank) in tanks)
         {
             if (id == self.Id || !tank.IsAlive) continue;
-            if (self.TeamId >= 0 && tank.TeamId == self.TeamId) continue; // skip allies
+            if (self.TeamId >= 0 && tank.TeamId == self.TeamId) continue;
 
             float dx = tank.Position.X - self.Position.X;
             float dy = tank.Position.Y - self.Position.Y;
@@ -125,12 +140,35 @@ public sealed class SimpleBot : IBot
         return nearest;
     }
 
+    private static ControlPoint? FindValuableZone(TankEntity self, IReadOnlyList<ControlPoint> controlPoints)
+    {
+        ControlPoint? nearest = null;
+        float nearestDist = float.MaxValue;
+
+        for (int i = 0; i < controlPoints.Count; i++)
+        {
+            ControlPoint cp = controlPoints[i];
+            if (self.TeamId >= 0 && cp.ControllingTeamId == self.TeamId) continue;
+
+            float dx = cp.Position.X - self.Position.X;
+            float dy = cp.Position.Y - self.Position.Y;
+            float dist = dx * dx + dy * dy;
+
+            if (dist < nearestDist)
+            {
+                nearestDist = dist;
+                nearest = cp;
+            }
+        }
+
+        return nearest;
+    }
+
     /// <summary>Returns the angle in degrees pointing from <paramref name="from"/> to <paramref name="to"/>, 0 = up.</summary>
     private static float AngleTo(Vector2 from, Vector2 to)
     {
         float dx = to.X - from.X;
         float dy = to.Y - from.Y;
-        // atan2 returns angle from positive X axis; convert to game convention (0 = up, CW positive)
         float radians = MathF.Atan2(dx, -dy);
         float degrees = radians * 180f / MathF.PI;
         return NormalizeAngle(degrees);

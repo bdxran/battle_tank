@@ -24,6 +24,7 @@ public class TrainingRules : IBattleRules
     public bool UsesPowerups => true;
     public int MinPlayersToStart => 1;
     public uint FireCooldownTicks => 5; // tir plus rapide en training
+    public int TicksRemaining => 0;
 
     private int _spawnCounter;
 
@@ -34,10 +35,16 @@ public class TrainingRules : IBattleRules
         return SpawnPoints[_spawnCounter++ % SpawnPoints.Length];
     }
 
-    public void OnPlayerAdded(int playerId, GameRoomState state) { }
+    public void OnPlayerAdded(int playerId, GameRoomState state)
+    {
+        state.PlayerDeaths[playerId] = 0;
+    }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
     {
+        if (state.PlayerDeaths.ContainsKey(eliminatedId))
+            state.PlayerDeaths[eliminatedId]++;
+
         // Bots respawn quickly; human player respawns too so training is uninterrupted
         var spawnPos = SpawnPoints[_spawnCounter++ % SpawnPoints.Length];
         uint respawnTick = currentTick + Constants.DeathmatchRespawnDelayTicks;

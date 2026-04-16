@@ -43,8 +43,9 @@ public static class Constants
     public const int DeathmatchRespawnDelayTicks = 60; // 3s at 20 TPS
 
     // Capture Zone
-    public const int CaptureZoneScoreToWin = 200;      // ticks of control (200 ticks = 10s at 20 TPS)
-    public const int CaptureZoneDurationTicks = 4800;  // 4 min at 20 TPS
+    public const int CaptureZoneScoreToWin = 1200;          // ~60s avec 1 zone, ~20s avec 3 zones
+    public const int CaptureZoneDurationTicks = 4800;       // 4 min at 20 TPS
+    public const int CaptureZoneRespawnDelayTicks = 120;    // 6s at 20 TPS
     public const float ControlPointRadius = 80f;
     public const float CaptureRatePerSecond = 10f;     // capture progress rate (%/s per controlling team)
 }

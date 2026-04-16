@@ -6,7 +6,7 @@ namespace BattleTank.GameLogic.Rules;
 
 /// <summary>
 /// Shared context passed to IBattleRules. Holds references to GameRoom's internal collections.
-/// Rules may mutate PlayerKills, PlayerTeams, TeamScores, and RespawnQueue.
+/// Rules may mutate PlayerKills, PlayerDeaths, PlayerTeams, TeamScores, and RespawnQueue.
 /// Mutable collections are intentional: IBattleRules implementations write to them each tick.
 /// </summary>
 public class GameRoomState
@@ -14,6 +14,7 @@ public class GameRoomState
     public IReadOnlyDictionary<int, TankEntity> Tanks { get; }
     public IReadOnlyDictionary<int, string> PlayerNicknames { get; }
     public Dictionary<int, int> PlayerKills { get; }
+    public Dictionary<int, int> PlayerDeaths { get; }
     public Dictionary<int, int> PlayerTeams { get; }
     public Dictionary<int, int> TeamScores { get; }
     public Queue<(int PlayerId, uint RespawnTick, Vector2 SpawnPos)> RespawnQueue { get; }
@@ -23,6 +24,7 @@ public class GameRoomState
         IReadOnlyDictionary<int, TankEntity> tanks,
         IReadOnlyDictionary<int, string> playerNicknames,
         Dictionary<int, int> playerKills,
+        Dictionary<int, int> playerDeaths,
         Dictionary<int, int> playerTeams,
         Dictionary<int, int> teamScores,
         Queue<(int, uint, Vector2)> respawnQueue,
@@ -31,6 +33,7 @@ public class GameRoomState
         Tanks = tanks;
         PlayerNicknames = playerNicknames;
         PlayerKills = playerKills;
+        PlayerDeaths = playerDeaths;
         PlayerTeams = playerTeams;
         TeamScores = teamScores;
         RespawnQueue = respawnQueue;

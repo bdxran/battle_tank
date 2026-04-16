@@ -19,6 +19,7 @@ public class BattleRoyaleRules : IBattleRules
     public bool UsesPowerups => true;
     public int MinPlayersToStart => Constants.MinPlayersToStart;
     public uint FireCooldownTicks => 10;
+    public int TicksRemaining => 0;
 
     public void Initialize(GameRoomState state) { }
 
@@ -31,12 +32,16 @@ public class BattleRoyaleRules : IBattleRules
     public void OnPlayerAdded(int playerId, GameRoomState state)
     {
         state.PlayerTeams[playerId] = -1;
+        state.PlayerDeaths[playerId] = 0;
     }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
     {
-        if (killerId >= 0 && state.PlayerKills.ContainsKey(killerId))
+        if (state.PlayerKills.ContainsKey(killerId))
             state.PlayerKills[killerId]++;
+
+        if (state.PlayerDeaths.ContainsKey(eliminatedId))
+            state.PlayerDeaths[eliminatedId]++;
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state) { }

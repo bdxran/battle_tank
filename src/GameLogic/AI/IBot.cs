@@ -14,5 +14,8 @@ public interface IBot
     /// <summary>
     /// Computes the input flags the bot wants to apply this tick.
     /// </summary>
-    InputFlags ComputeInput(IReadOnlyDictionary<int, TankEntity> tanks, uint currentTick);
+    InputFlags ComputeInput(
+        IReadOnlyDictionary<int, TankEntity> tanks,
+        IReadOnlyList<ControlPoint> controlPoints,
+        uint currentTick);
 }

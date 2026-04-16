@@ -64,6 +64,12 @@ public partial class ClientNode : Node
     private GameLogic.Shared.GameMode _pendingMode;
     private string _pendingNickname = "";
 
+    private ScoreboardOverlay _scoreboard = null!;
+    private PlayerInfo[] _lastLeaderboard = [];
+    private int[] _lastTeamScores = [];
+    private bool _countdownActive;
+    private GameLogic.Shared.GameMode _currentMode;
+
     private CrashReporter _crashReporter = null!;
 
     public override void _Ready()
@@ -88,6 +94,9 @@ public partial class ClientNode : Node
         _gameOverScreen.RestartRequested += OnGameOverRestart;
         _gameOverScreen.MenuRequested += OnGameOverMenu;
         AddChild(_gameOverScreen);
+
+        _scoreboard = new ScoreboardOverlay();
+        AddChild(_scoreboard);
 
         _renderer = new GameRenderer();
         AddChild(_renderer);
@@ -170,7 +179,23 @@ public partial class ClientNode : Node
 
     public override void _Process(double delta)
     {
-        if ((_gamePhase == GamePhase.InGame || _gamePhase == GamePhase.Solo) && Input.IsActionJustPressed("ui_cancel"))
+        if (_gamePhase == GamePhase.InGame || _gamePhase == GamePhase.Solo)
+        {
+            bool tabHeld = Input.IsKeyPressed(Key.Tab);
+            if (tabHeld && !_scoreboard.Visible)
+            {
+                if (_localGameNode != null)
+                    _lastLeaderboard = _localGameNode.GetLeaderboard();
+                _scoreboard.UpdateFrom(_lastLeaderboard, _lastTeamScores, _currentMode);
+                _scoreboard.Show();
+            }
+            else if (!tabHeld && _scoreboard.Visible)
+            {
+                _scoreboard.Hide();
+            }
+        }
+
+        if ((_gamePhase == GamePhase.InGame || _gamePhase == GamePhase.Solo) && !_countdownActive && Input.IsActionJustPressed("ui_cancel"))
         {
             if (_pauseMenu.Visible)
                 OnPauseMenuResume();
@@ -308,13 +333,16 @@ public partial class ClientNode : Node
         _renderer.Initialize(_localGameNode, _hud, LocalGameNode.LocalPlayerId);
         _hud.Show();
 
+        _currentMode = mode;
         _localGameNode.Initialize(mode, nickname);
 
+        _countdownActive = true;
         _countdown.StartCountdown();
     }
 
     private void OnCountdownFinished()
     {
+        _countdownActive = false;
         if (_localGameNode != null)
             _localGameNode.Running = true;
 
@@ -339,7 +367,10 @@ public partial class ClientNode : Node
     {
         _gamePhase = GamePhase.GameOver;
         _spectatorOverlay.Hide();
-        _gameOverScreen.ShowWin(LocalGameNode.LocalPlayerId, msg.WinnerPlayerId);
+        _scoreboard.Hide();
+        _gameOverScreen.ShowResult(
+            LocalGameNode.LocalPlayerId, msg.WinnerPlayerId, msg.WinnerTeamId,
+            msg.Leaderboard ?? [], _lastTeamScores, _currentMode);
 
         // Clean up local game
         _localGameNode?.QueueFree();
@@ -414,6 +445,10 @@ public partial class ClientNode : Node
 
     private void OnGameStateFullReceived(GameStateFull state)
     {
+        _currentMode = state.Mode;
+        _lastLeaderboard = state.Players ?? [];
+        _lastTeamScores = state.TeamScores ?? [];
+
         if (!_trainingMode || _authenticated) return;
 
         _authenticated = true;
@@ -537,7 +572,10 @@ public partial class ClientNode : Node
         _spectating = false;
         _gamePhase = GamePhase.GameOver;
         _spectatorOverlay.Hide();
-        _gameOverScreen.ShowWin(_localPlayerId, msg.WinnerPlayerId);
+        _scoreboard.Hide();
+        _gameOverScreen.ShowResult(
+            _localPlayerId, msg.WinnerPlayerId, msg.WinnerTeamId,
+            msg.Leaderboard ?? [], _lastTeamScores, _currentMode);
     }
 
     private void OnPendingReportsFound(string[] paths)

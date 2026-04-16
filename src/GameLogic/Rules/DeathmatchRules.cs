@@ -23,6 +23,7 @@ public class DeathmatchRules : IBattleRules
     public bool UsesPowerups => true;
     public int MinPlayersToStart => Constants.MinPlayersToStart;
     public uint FireCooldownTicks => 10;
+    public int TicksRemaining => _ticksRemaining;
 
     public void Initialize(GameRoomState state)
     {
@@ -32,18 +33,22 @@ public class DeathmatchRules : IBattleRules
 
     public Vector2 GetSpawnPoint(int playerId, GameRoomState state)
     {
-        return SpawnPoints[Math.Abs(playerId) % SpawnPoints.Length];
+        return SafestSpawnPoint(playerId, state);
     }
 
     public void OnPlayerAdded(int playerId, GameRoomState state)
     {
         state.PlayerTeams[playerId] = -1;
+        state.PlayerDeaths[playerId] = 0;
     }
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
     {
-        if (killerId >= 0 && state.PlayerKills.ContainsKey(killerId))
+        if (state.PlayerKills.ContainsKey(killerId))
             state.PlayerKills[killerId]++;
+
+        if (state.PlayerDeaths.ContainsKey(eliminatedId))
+            state.PlayerDeaths[eliminatedId]++;
 
         var spawnPos = GetSpawnPoint(eliminatedId, state);
         state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.DeathmatchRespawnDelayTicks, spawnPos));
@@ -64,7 +69,6 @@ public class DeathmatchRules : IBattleRules
         if (!_timeUp)
             return null;
 
-        // Player with most kills wins
         int bestId = -1;
         int bestKills = -1;
         foreach (var (id, kills) in state.PlayerKills)
@@ -85,9 +89,36 @@ public class DeathmatchRules : IBattleRules
         foreach (var (id, kills) in state.PlayerKills)
         {
             var nickname = state.PlayerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
-            infos.Add(new PlayerInfo(id, nickname, kills));
+            int deaths = state.PlayerDeaths.TryGetValue(id, out var d) ? d : 0;
+            infos.Add(new PlayerInfo(id, nickname, kills, -1, deaths));
         }
         infos.Sort((a, b) => b.Kills.CompareTo(a.Kills));
         return infos.ToArray();
+    }
+
+    private static Vector2 SafestSpawnPoint(int playerId, GameRoomState state)
+    {
+        Vector2 best = SpawnPoints[0];
+        float bestMinDist = -1f;
+
+        foreach (var candidate in SpawnPoints)
+        {
+            float minDist = float.MaxValue;
+            foreach (var (id, tank) in state.Tanks)
+            {
+                if (!tank.IsAlive || id == playerId) continue;
+                float dx = tank.Position.X - candidate.X;
+                float dy = tank.Position.Y - candidate.Y;
+                float d = dx * dx + dy * dy;
+                if (d < minDist) minDist = d;
+            }
+            if (minDist == float.MaxValue) minDist = 0f;
+            if (minDist > bestMinDist)
+            {
+                bestMinDist = minDist;
+                best = candidate;
+            }
+        }
+        return best;
     }
 }

@@ -52,12 +52,21 @@
 - [x] Score = nombre de kills
 - [x] Leaderboard live en HUD
 - [x] Victoire : plus de kills au chrono
+- [x] Spawn safe (distance maximale des ennemis)
+- [x] HUD timer + kills en temps réel
 
 **Capture de zone :**
 - [x] Zones de contrôle sur la carte (3 zones)
 - [x] Capture progressive (tank dans la zone = accumule des points)
 - [x] Affichage des zones contrôlées (minimap + carte)
 - [x] Victoire : premier à X points ou plus de points au timer
+- [x] Respawn activé (délai 6s)
+- [x] IA se déplace vers les zones non capturées
+- [x] HUD timer + scores équipes en temps réel
+
+**Tous modes :**
+- [x] Overlay scoreboard (Tab) : K/D/ratio, groupé par équipe si applicable
+- [x] Tableau de scores à l'écran de fin de partie
 
 ## Phase 4 — Comptes & Progression
 

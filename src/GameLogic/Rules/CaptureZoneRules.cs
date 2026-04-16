@@ -27,11 +27,12 @@ public class CaptureZoneRules : IBattleRules
     private GameOverResult? _result;
 
     public GameMode Mode => GameMode.CaptureZone;
-    public bool IsFriendlyFireEnabled => true;
+    public bool IsFriendlyFireEnabled => false;
     public bool UseShrinkingZone => false;
     public bool UsesPowerups => false;
     public int MinPlayersToStart => Constants.MinPlayersToStart;
     public uint FireCooldownTicks => 10;
+    public int TicksRemaining => _ticksRemaining;
 
     public void Initialize(GameRoomState state)
     {
@@ -46,12 +47,11 @@ public class CaptureZoneRules : IBattleRules
 
     public Vector2 GetSpawnPoint(int playerId, GameRoomState state)
     {
-        return SpawnPoints[Math.Abs(playerId) % SpawnPoints.Length];
+        return SafestSpawnPoint(playerId, state);
     }
 
     public void OnPlayerAdded(int playerId, GameRoomState state)
     {
-        // Assign teams round-robin
         int team0Count = 0;
         int team1Count = 0;
         foreach (var (_, t) in state.PlayerTeams)
@@ -62,6 +62,7 @@ public class CaptureZoneRules : IBattleRules
 
         int assignedTeam = team0Count <= team1Count ? 0 : 1;
         state.PlayerTeams[playerId] = assignedTeam;
+        state.PlayerDeaths[playerId] = 0;
 
         if (!state.TeamScores.ContainsKey(0)) state.TeamScores[0] = 0;
         if (!state.TeamScores.ContainsKey(1)) state.TeamScores[1] = 0;
@@ -69,15 +70,20 @@ public class CaptureZoneRules : IBattleRules
 
     public void OnElimination(int eliminatedId, int killerId, uint currentTick, GameRoomState state)
     {
-        if (killerId >= 0 && state.PlayerKills.ContainsKey(killerId))
+        if (state.PlayerKills.ContainsKey(killerId))
             state.PlayerKills[killerId]++;
+
+        if (state.PlayerDeaths.ContainsKey(eliminatedId))
+            state.PlayerDeaths[eliminatedId]++;
+
+        var spawnPos = GetSpawnPoint(eliminatedId, state);
+        state.RespawnQueue.Enqueue((eliminatedId, currentTick + (uint)Constants.CaptureZoneRespawnDelayTicks, spawnPos));
     }
 
     public void OnTick(uint currentTick, float deltaTime, GameRoomState state)
     {
         if (_gameOver) return;
 
-        // Each tick a team controls a zone → +1 point (integer, no float rounding)
         foreach (var cp in state.ControlPoints)
         {
             int? scoringTeam = cp.Tick(state.Tanks, deltaTime);
@@ -118,9 +124,9 @@ public class CaptureZoneRules : IBattleRules
         {
             var nickname = state.PlayerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
             int teamId = state.PlayerTeams.TryGetValue(id, out var t) ? t : -1;
-            infos.Add(new PlayerInfo(id, nickname, kills, teamId));
+            int deaths = state.PlayerDeaths.TryGetValue(id, out var d) ? d : 0;
+            infos.Add(new PlayerInfo(id, nickname, kills, teamId, deaths));
         }
-        // Sort by team score descending, then kills descending
         infos.Sort((a, b) =>
         {
             int scoreA = state.TeamScores.TryGetValue(a.TeamId, out var sa) ? sa : 0;
@@ -158,5 +164,31 @@ public class CaptureZoneRules : IBattleRules
             }
         }
         return bestTeam >= 0 ? BuildResult(bestTeam, state) : new GameOverResult(null, null);
+    }
+
+    private static Vector2 SafestSpawnPoint(int playerId, GameRoomState state)
+    {
+        Vector2 best = SpawnPoints[0];
+        float bestMinDist = -1f;
+
+        foreach (var candidate in SpawnPoints)
+        {
+            float minDist = float.MaxValue;
+            foreach (var (id, tank) in state.Tanks)
+            {
+                if (!tank.IsAlive || id == playerId) continue;
+                float dx = tank.Position.X - candidate.X;
+                float dy = tank.Position.Y - candidate.Y;
+                float d = dx * dx + dy * dy;
+                if (d < minDist) minDist = d;
+            }
+            if (minDist == float.MaxValue) minDist = 0f;
+            if (minDist > bestMinDist)
+            {
+                bestMinDist = minDist;
+                best = candidate;
+            }
+        }
+        return best;
     }
 }

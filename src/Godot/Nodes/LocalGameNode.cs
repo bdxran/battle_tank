@@ -32,6 +32,8 @@ public partial class LocalGameNode : Node, IGameStateProvider
     private bool _gameOver;
     public bool Running { get; set; } = false;
 
+    public PlayerInfo[] GetLeaderboard() => _room?.GetLeaderboard() ?? [];
+
     public void Initialize(GameMode mode, string nickname)
     {
         IBattleRules rules = mode switch

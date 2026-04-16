@@ -36,6 +36,7 @@ public partial class GameRoom
     private readonly Dictionary<int, TankEntity> _tanks;
     private readonly Dictionary<int, string> _playerNicknames;
     private readonly Dictionary<int, int> _playerKills;
+    private readonly Dictionary<int, int> _playerDeaths;
     private readonly Dictionary<int, int> _playerTeams;
     private readonly Dictionary<int, int> _teamScores;
     private readonly Dictionary<int, PlayerSession> _playerSessions;
@@ -77,6 +78,7 @@ public partial class GameRoom
         _tanks = new Dictionary<int, TankEntity>();
         _playerNicknames = new Dictionary<int, string>();
         _playerKills = new Dictionary<int, int>();
+        _playerDeaths = new Dictionary<int, int>();
         _playerTeams = new Dictionary<int, int>();
         _teamScores = new Dictionary<int, int>();
         _playerSessions = new Dictionary<int, PlayerSession>();
@@ -89,7 +91,7 @@ public partial class GameRoom
         _phase = GamePhase.WaitingForPlayers;
 
         _state = new GameRoomState(
-            _tanks, _playerNicknames, _playerKills, _playerTeams,
+            _tanks, _playerNicknames, _playerKills, _playerDeaths, _playerTeams,
             _teamScores, _respawnQueue, _controlPoints);
 
         _rules.Initialize(_state);
@@ -155,6 +157,7 @@ public partial class GameRoom
         _tanks[playerId] = tank;
         _playerNicknames[playerId] = string.IsNullOrWhiteSpace(nickname) ? $"Tank{playerId}" : nickname;
         _playerKills[playerId] = 0;
+        _playerDeaths[playerId] = 0;
         _playerSessions[playerId] = new PlayerSession();
 
         _logger.LogInformation("Player {PlayerId} ({Nickname}) joined at {SpawnPos}", playerId, _playerNicknames[playerId], spawnPos);
@@ -170,6 +173,7 @@ public partial class GameRoom
 
         _playerNicknames.Remove(playerId);
         _playerKills.Remove(playerId);
+        _playerDeaths.Remove(playerId);
         _playerTeams.Remove(playerId);
         _playerSessions.Remove(playerId);
         _botIds.Remove(playerId);
@@ -222,7 +226,7 @@ public partial class GameRoom
         foreach (var (botId, bot) in _bots)
         {
             if (_playerSessions.TryGetValue(botId, out var botSession) && _tanks.TryGetValue(botId, out var botTank) && botTank.IsAlive)
-                botSession.InputBuffer = bot.ComputeInput(_tanks, _currentTick);
+                botSession.InputBuffer = bot.ComputeInput(_tanks, _controlPoints, _currentTick);
         }
 
         foreach (var (id, tank) in _tanks)
@@ -288,6 +292,7 @@ public partial class GameRoom
         _tanks.Clear();
         _playerNicknames.Clear();
         _playerKills.Clear();
+        _playerDeaths.Clear();
         _playerTeams.Clear();
         _teamScores.Clear();
         _playerSessions.Clear();

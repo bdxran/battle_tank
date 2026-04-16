@@ -21,7 +21,8 @@ public partial class GameRoom
         return new GameStateFull(
             _currentTick, tankSnapshots, bulletSnapshots, _phase,
             _zone.GetSnapshot(), playerInfos, CountdownSecondsRemaining,
-            powerupSnapshots, controlPointSnapshots, _rules.Mode);
+            powerupSnapshots, controlPointSnapshots, _rules.Mode,
+            _rules.TicksRemaining, BuildTeamScoresArray());
     }
 
     /// <summary>
@@ -41,7 +42,8 @@ public partial class GameRoom
 
         return new GameStateDelta(
             _currentTick, lastAckedTick, tankSnapshots, bulletSnapshots,
-            _zone.GetSnapshot(), powerupSnapshots, controlPointSnapshots);
+            _zone.GetSnapshot(), powerupSnapshots, controlPointSnapshots,
+            _rules.TicksRemaining, BuildTeamScoresArray());
     }
 
     private BulletSnapshot[] GetBulletSnapshots()
@@ -72,9 +74,22 @@ public partial class GameRoom
             var nickname = _playerNicknames.TryGetValue(id, out var n) ? n : $"Tank{id}";
             var kills = _playerKills.TryGetValue(id, out var k) ? k : 0;
             int teamId = _playerTeams.TryGetValue(id, out var t) ? t : -1;
-            infos[i++] = new PlayerInfo(id, nickname, kills, teamId);
+            int deaths = _playerDeaths.TryGetValue(id, out var d) ? d : 0;
+            infos[i++] = new PlayerInfo(id, nickname, kills, teamId, deaths);
         }
         return infos;
+    }
+
+    private int[] BuildTeamScoresArray()
+    {
+        if (_teamScores.Count == 0) return [];
+        int maxTeam = 0;
+        foreach (var k in _teamScores.Keys)
+            if (k > maxTeam) maxTeam = k;
+        var arr = new int[maxTeam + 1];
+        foreach (var (t, s) in _teamScores)
+            arr[t] = s;
+        return arr;
     }
 
     private PowerupSnapshot[] GetPowerupSnapshots()

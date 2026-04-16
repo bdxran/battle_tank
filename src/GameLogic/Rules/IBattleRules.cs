@@ -25,6 +25,9 @@ public interface IBattleRules
     /// <summary>Minimum ticks between two shots for a single player.</summary>
     uint FireCooldownTicks { get; }
 
+    /// <summary>Ticks remaining in the current match. 0 if this mode has no timer.</summary>
+    int TicksRemaining { get; }
+
     /// <summary>Called once by GameRoom after construction to allow rules to populate ControlPoints etc.</summary>
     void Initialize(GameRoomState state);
 

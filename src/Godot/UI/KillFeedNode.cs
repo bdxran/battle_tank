@@ -20,9 +20,14 @@ public partial class KillFeedNode : CanvasLayer
 
     public void AddEntry(int killedId, int killerId)
     {
-        // Trim oldest entries if over limit
-        while (_container.GetChildCount() >= MaxEntries)
-            _container.GetChild(0).QueueFree();
+        // Remove oldest entry if at capacity — use RemoveChild (immediate) before QueueFree
+        // because QueueFree alone is deferred and does not reduce GetChildCount() immediately
+        if (_container.GetChildCount() >= MaxEntries)
+        {
+            var oldest = _container.GetChild(0);
+            _container.RemoveChild(oldest);
+            oldest.QueueFree();
+        }
 
         string text = killerId > 0
             ? $"Player {killerId} eliminated Player {killedId}"

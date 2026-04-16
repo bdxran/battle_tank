@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `KillFeedNode.AddEntry` — boucle infinie (`while GetChildCount() >= MaxEntries`) car `QueueFree` est différé dans Godot et ne réduit pas le compteur immédiatement ; remplacé par `if` + `RemoveChild` (immédiat) + `QueueFree` — se déclenchait dès le 6ème kill en BR (sans respawn)
 - `GameRoom.TickZone` — zone tickée une fois par tank vivant au lieu d'une seule fois : dommages et vitesse de rétrécissement multipliés par N (10 tanks = 10×), tuant tous les tanks en ~0.5s en Battle Royale
 - `GameRenderer.Initialize` — nodes Godot (ZoneNode, ControlPointsNode, WallNodes, KillFeedNode, Camera2D) créés à chaque nouvelle partie sans libérer les précédents ; fuite mémoire progressive à chaque relance de partie (tous modes)
 

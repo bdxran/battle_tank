@@ -5,8 +5,9 @@ namespace BattleTank.Godot.Nodes;
 
 public partial class TankNode : Node2D
 {
-    private static readonly Color BodyColor = new(0.2f, 0.6f, 0.2f);
     private static readonly Color LocalBodyColor = new(0.2f, 0.4f, 0.8f);
+    private static readonly Color AllyBodyColor = new(0.2f, 0.7f, 0.2f);
+    private static readonly Color EnemyBodyColor = new(0.8f, 0.2f, 0.2f);
     private static readonly Color BarrelColor = new(0.1f, 0.4f, 0.1f);
     private static readonly Color DeadColor = new(0.4f, 0.4f, 0.4f);
     private static readonly Color FlashColor = new(1f, 1f, 1f, 0.6f);
@@ -15,6 +16,7 @@ public partial class TankNode : Node2D
     private const float ExplosionDuration = 0.5f;
 
     private bool _isLocal;
+    private bool _isAlly;
     private bool _isAlive = true;
     private int _prevHealth = Constants.TankMaxHealth;
     private float _flashTimer;
@@ -22,10 +24,11 @@ public partial class TankNode : Node2D
 
     public int PlayerId { get; private set; }
 
-    public void Initialize(int playerId, bool isLocal)
+    public void Initialize(int playerId, bool isLocal, bool isAlly = false)
     {
         PlayerId = playerId;
         _isLocal = isLocal;
+        _isAlly = isAlly;
     }
 
     public void UpdateFrom(TankSnapshot snapshot)
@@ -75,7 +78,7 @@ public partial class TankNode : Node2D
             return;
         }
 
-        var bodyColor = _isLocal ? LocalBodyColor : BodyColor;
+        var bodyColor = _isLocal ? LocalBodyColor : (_isAlly ? AllyBodyColor : EnemyBodyColor);
 
         // Tank body (square)
         DrawRect(new Rect2(-Constants.TankRadius, -Constants.TankRadius,

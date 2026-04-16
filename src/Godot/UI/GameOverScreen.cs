@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 namespace BattleTank.Godot.UI;
@@ -6,7 +7,11 @@ public partial class GameOverScreen : CanvasLayer
 {
     private Label _titleLabel = null!;
     private Label _subtitleLabel = null!;
-    private Label _hintLabel = null!;
+    private Button _restartButton = null!;
+    private Button _menuButton = null!;
+
+    public event Action? RestartRequested;
+    public event Action? MenuRequested;
 
     public override void _Ready()
     {
@@ -32,34 +37,41 @@ public partial class GameOverScreen : CanvasLayer
             Text = ""
         };
 
-        _hintLabel = new Label
-        {
-            HorizontalAlignment = HorizontalAlignment.Center,
-            Text = "Disconnecting..."
-        };
+        var btnContainer = new HBoxContainer();
+        btnContainer.AddThemeConstantOverride("separation", 12);
+        btnContainer.Alignment = BoxContainer.AlignmentMode.Center;
+
+        _restartButton = new Button { Text = "Rejouer" };
+        _restartButton.Pressed += () => RestartRequested?.Invoke();
+
+        _menuButton = new Button { Text = "Menu principal" };
+        _menuButton.Pressed += () => MenuRequested?.Invoke();
+
+        btnContainer.AddChild(_restartButton);
+        btnContainer.AddChild(_menuButton);
 
         vbox.AddChild(_titleLabel);
         vbox.AddChild(_subtitleLabel);
-        vbox.AddChild(_hintLabel);
+        vbox.AddChild(btnContainer);
     }
 
     public void ShowWin(int localPlayerId, int winnerId)
     {
-        _titleLabel.Text = winnerId == localPlayerId ? "VICTORY!" : "DEFEAT";
+        _titleLabel.Text = winnerId == localPlayerId ? "VICTOIRE !" : "DÉFAITE";
         _subtitleLabel.Text = winnerId == -1
-            ? "No survivors."
+            ? "Aucun survivant."
             : winnerId == localPlayerId
-                ? "You are the last tank standing."
-                : $"Player {winnerId} wins.";
+                ? "Vous êtes le dernier tank en vie."
+                : $"Joueur {winnerId} remporte la partie.";
         Visible = true;
     }
 
     public void ShowEliminated(int killerId)
     {
-        _titleLabel.Text = "ELIMINATED";
+        _titleLabel.Text = "ÉLIMINÉ";
         _subtitleLabel.Text = killerId == -1
-            ? "Killed by the zone."
-            : $"Killed by Player {killerId}.";
+            ? "Éliminé par la zone."
+            : $"Éliminé par le Joueur {killerId}.";
         Visible = true;
     }
 }

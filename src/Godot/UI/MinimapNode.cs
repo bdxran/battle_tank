@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using BattleTank.GameLogic.Shared;
 
@@ -17,6 +18,7 @@ public partial class MinimapNode : Control
     private static readonly Color BackgroundColor = new(0f, 0f, 0f, 0.55f);
     private static readonly Color BorderColor = new(1f, 1f, 1f, 0.4f);
     private static readonly Color LocalTankColor = new(0.3f, 0.6f, 1f);
+    private static readonly Color AllyTankColor = new(0.2f, 0.9f, 0.2f);
     private static readonly Color EnemyTankColor = new(0.9f, 0.3f, 0.3f);
     private static readonly Color DeadTankColor = new(0.4f, 0.4f, 0.4f, 0.5f);
     private static readonly Color ZoneBorderColor = new(0.3f, 1f, 0.4f, 0.7f);
@@ -29,6 +31,8 @@ public partial class MinimapNode : Control
     private ZoneSnapshot _zone = new(500f, 500f, Constants.ZoneInitialRadius, Constants.ZoneDamagePerSecond);
     private ControlPointSnapshot[] _controlPoints = [];
     private int _localPlayerId;
+    private int _localTeamId = -1;
+    private Dictionary<int, int> _playerTeamMap = new();
 
     public void Initialize(int localPlayerId)
     {
@@ -40,6 +44,13 @@ public partial class MinimapNode : Control
         OffsetLeft = OffsetRight - MapSize;
         OffsetTop = OffsetBottom - MapSize;
         Size = new Vector2(MapSize, MapSize);
+    }
+
+    public void SetTeamInfo(int localTeamId, Dictionary<int, int> playerTeamMap)
+    {
+        _localTeamId = localTeamId;
+        _playerTeamMap = playerTeamMap;
+        QueueRedraw();
     }
 
     public void UpdateFrom(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)
@@ -79,9 +90,13 @@ public partial class MinimapNode : Control
         foreach (var tank in _tanks)
         {
             var pos = WorldToMinimap(tank.X, tank.Y);
+            bool isAlly = tank.Id != _localPlayerId && _localTeamId >= 0
+                && _playerTeamMap.TryGetValue(tank.Id, out int tid) && tid == _localTeamId;
             var color = tank.Health <= 0
                 ? DeadTankColor
-                : tank.Id == _localPlayerId ? LocalTankColor : EnemyTankColor;
+                : tank.Id == _localPlayerId ? LocalTankColor
+                : isAlly ? AllyTankColor
+                : EnemyTankColor;
             DrawCircle(pos, TankDotRadius, color);
         }
     }

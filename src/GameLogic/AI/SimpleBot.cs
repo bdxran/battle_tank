@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Numerics;
 using BattleTank.GameLogic.Entities;
 using BattleTank.GameLogic.Network;
+using BattleTank.GameLogic.Physics;
+using BattleTank.GameLogic.Shared;
 
 namespace BattleTank.GameLogic.AI;
 
@@ -79,9 +81,9 @@ public sealed class SimpleBot : IBot
                 ? (flags | InputFlags.RotateLeft)
                 : (flags | InputFlags.RotateRight);
         }
-        else
+        else if (CollisionSystem.HasLineOfSight(self.Position, target.Position, MapLayout.Walls))
         {
-            // Aimed well enough: fire
+            // Aimed and line of sight is clear: fire
             flags |= InputFlags.Fire;
         }
 
@@ -107,6 +109,7 @@ public sealed class SimpleBot : IBot
         foreach (var (id, tank) in tanks)
         {
             if (id == self.Id || !tank.IsAlive) continue;
+            if (self.TeamId >= 0 && tank.TeamId == self.TeamId) continue; // skip allies
 
             float dx = tank.Position.X - self.Position.X;
             float dy = tank.Position.Y - self.Position.Y;

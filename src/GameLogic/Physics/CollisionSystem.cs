@@ -76,6 +76,56 @@ public static class CollisionSystem
         return true;
     }
 
+    /// <summary>Returns true when the segment from <paramref name="from"/> to <paramref name="to"/> is not blocked by any wall.</summary>
+    public static bool HasLineOfSight(Vector2 from, Vector2 to, WallData[] walls)
+    {
+        foreach (var wall in walls)
+        {
+            if (SegmentIntersectsRect(from, to, wall))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool SegmentIntersectsRect(Vector2 a, Vector2 b, WallData wall)
+    {
+        float dx = b.X - a.X;
+        float dy = b.Y - a.Y;
+
+        float txMin, txMax, tyMin, tyMax;
+
+        if (dx != 0)
+        {
+            txMin = (wall.X - a.X) / dx;
+            txMax = (wall.Right - a.X) / dx;
+            if (txMin > txMax) (txMin, txMax) = (txMax, txMin);
+        }
+        else
+        {
+            if (a.X < wall.X || a.X > wall.Right) return false;
+            txMin = float.NegativeInfinity;
+            txMax = float.PositiveInfinity;
+        }
+
+        if (dy != 0)
+        {
+            tyMin = (wall.Y - a.Y) / dy;
+            tyMax = (wall.Bottom - a.Y) / dy;
+            if (tyMin > tyMax) (tyMin, tyMax) = (tyMax, tyMin);
+        }
+        else
+        {
+            if (a.Y < wall.Y || a.Y > wall.Bottom) return false;
+            tyMin = float.NegativeInfinity;
+            tyMax = float.PositiveInfinity;
+        }
+
+        float tMin = MathF.Max(txMin, tyMin);
+        float tMax = MathF.Min(txMax, tyMax);
+
+        return tMin <= tMax && tMax >= 0f && tMin <= 1f;
+    }
+
     /// <summary>Clamps tank inside map bounds.</summary>
     public static void ClampTankToMap(TankEntity tank)
     {

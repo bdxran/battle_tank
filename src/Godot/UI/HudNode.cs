@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using BattleTank.GameLogic.Shared;
 
@@ -39,6 +40,11 @@ public partial class HudNode : CanvasLayer
     public void UpdateAliveCount(int count)
     {
         _aliveLabel.Text = $"Alive: {count}";
+    }
+
+    public void SetTeamInfo(int localTeamId, Dictionary<int, int> playerTeamMap)
+    {
+        _minimap.SetTeamInfo(localTeamId, playerTeamMap);
     }
 
     public void UpdateMinimap(TankSnapshot[] tanks, ZoneSnapshot zone, ControlPointSnapshot[] controlPoints)

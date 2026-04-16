@@ -85,6 +85,8 @@ public partial class ClientNode : Node
         _hud.Hide();
 
         _gameOverScreen = new GameOverScreen();
+        _gameOverScreen.RestartRequested += OnGameOverRestart;
+        _gameOverScreen.MenuRequested += OnGameOverMenu;
         AddChild(_gameOverScreen);
 
         _renderer = new GameRenderer();
@@ -342,6 +344,30 @@ public partial class ClientNode : Node
         // Clean up local game
         _localGameNode?.QueueFree();
         _localGameNode = null;
+    }
+
+    private void OnGameOverRestart()
+    {
+        _gameOverScreen.Visible = false;
+        if (_network.IsConnected())
+        {
+            // Remote mode: return to menu, reconnect flow is complex
+            OnGameOverMenu();
+        }
+        else
+        {
+            // Solo mode: relaunch same mode and nickname
+            StartLocalGame(_pendingMode, _pendingNickname);
+        }
+    }
+
+    private void OnGameOverMenu()
+    {
+        _gameOverScreen.Visible = false;
+        _hud.Hide();
+        _renderer.Hide();
+        _gamePhase = GamePhase.MainMenu;
+        _mainMenuScreen.Show();
     }
 
     // ── Remote connection ────────────────────────────────────────────────────

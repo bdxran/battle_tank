@@ -15,6 +15,9 @@ public partial class GameRenderer : Node2D
     private readonly Dictionary<int, int> _tankPrevHealth = new();
     private readonly List<WallNode> _wallNodes = new();
 
+    private readonly Dictionary<int, int> _playerTeamMap = new();
+    private int _localTeamId = -1;
+
     private Network.IGameStateProvider _network = null!;
     private HudNode _hud = null!;
     private ZoneNode _zoneNode = null!;
@@ -37,6 +40,10 @@ public partial class GameRenderer : Node2D
             _network.GameStateDeltaReceived -= OnGameStateDelta;
             _network.PlayerEliminated -= OnPlayerEliminated;
         }
+
+        // Reset team state
+        _playerTeamMap.Clear();
+        _localTeamId = -1;
 
         // Free nodes from previous game session
         foreach (var node in _tankNodes.Values) node.QueueFree();
@@ -99,6 +106,13 @@ public partial class GameRenderer : Node2D
 
     private void OnGameStateFull(GameStateFull state)
     {
+        // Build team map from player info so TankNodes can be coloured correctly
+        _playerTeamMap.Clear();
+        foreach (var player in state.Players)
+            _playerTeamMap[player.Id] = player.TeamId;
+        _localTeamId = _playerTeamMap.TryGetValue(_localPlayerId, out int lt) ? lt : -1;
+        _hud.SetTeamInfo(_localTeamId, _playerTeamMap);
+
         foreach (var snapshot in state.Tanks)
         {
             GetOrCreateTankNode(snapshot.Id).UpdateFrom(snapshot);
@@ -144,8 +158,11 @@ public partial class GameRenderer : Node2D
         if (_tankNodes.TryGetValue(playerId, out var existing))
             return existing;
 
+        bool isLocal = playerId == _localPlayerId;
+        bool isAlly = !isLocal && _localTeamId >= 0
+            && _playerTeamMap.TryGetValue(playerId, out int tid) && tid == _localTeamId;
         var node = new TankNode();
-        node.Initialize(playerId, playerId == _localPlayerId);
+        node.Initialize(playerId, isLocal, isAlly);
         AddChild(node);
         _tankNodes[playerId] = node;
         return node;

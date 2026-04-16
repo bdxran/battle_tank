@@ -82,7 +82,7 @@ public partial class GameRenderer : Node2D
         _killFeed = new KillFeedNode();
         AddChild(_killFeed);
 
-        _camera = new Camera2D { Enabled = false };
+        _camera = new Camera2D { Enabled = true };
         AddChild(_camera);
 
         _network.GameStateFullReceived += OnGameStateFull;
@@ -124,6 +124,15 @@ public partial class GameRenderer : Node2D
         _zoneNode.UpdateFrom(state.Zone);
         _controlPointsNode.UpdateFrom(state.ControlPoints);
         UpdateHud(state.Tanks, state.Zone, state.ControlPoints);
+
+        foreach (var tank in state.Tanks)
+        {
+            if (tank.Id == _localPlayerId)
+            {
+                _camera.Position = new Vector2(tank.X, tank.Y);
+                break;
+            }
+        }
     }
 
     private void OnGameStateDelta(GameStateDelta state)
@@ -151,6 +160,8 @@ public partial class GameRenderer : Node2D
 
         if (_spectating)
             UpdateSpectatorCamera(state.Tanks);
+        else
+            UpdatePlayerCamera(state.Tanks);
     }
 
     private TankNode GetOrCreateTankNode(int playerId)
@@ -223,6 +234,18 @@ public partial class GameRenderer : Node2D
         _hud.UpdateHealth(localHealth);
         _hud.UpdateAliveCount(aliveCount);
         _hud.UpdateMinimap(tanks, zone, controlPoints);
+    }
+
+    private void UpdatePlayerCamera(TankSnapshot[] tanks)
+    {
+        foreach (var tank in tanks)
+        {
+            if (tank.Id == _localPlayerId && tank.Health > 0)
+            {
+                _camera.Position = new Vector2(tank.X, tank.Y);
+                return;
+            }
+        }
     }
 
     private void UpdateSpectatorCamera(TankSnapshot[] tanks)

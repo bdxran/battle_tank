@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Numerics;
 using BattleTank.GameLogic.Shared;
@@ -31,7 +32,7 @@ public class DeathmatchRules : IBattleRules
 
     public Vector2 GetSpawnPoint(int playerId, GameRoomState state)
     {
-        return SpawnPoints[playerId % SpawnPoints.Length];
+        return SpawnPoints[Math.Abs(playerId) % SpawnPoints.Length];
     }
 
     public void OnPlayerAdded(int playerId, GameRoomState state)

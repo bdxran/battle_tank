@@ -107,10 +107,18 @@ public partial class GameOverScreen : CanvasLayer
 
     private void BuildScoreGrid(PlayerInfo[] leaderboard, int[] teamScores, GameMode mode)
     {
+        bool showZones = mode == GameMode.CaptureZone;
+        _scoreGrid.Columns = showZones ? 6 : 5;
+
         foreach (Node child in _scoreGrid.GetChildren())
             child.QueueFree();
 
-        AddGridCell("Joueur"); AddGridCell("Kills"); AddGridCell("Morts"); AddGridCell("Ratio");
+        AddGridCell("Joueur");
+        AddGridCell("Kills");
+        AddGridCell("Assists");
+        AddGridCell("Morts");
+        AddGridCell("Ratio");
+        if (showZones) AddGridCell("Zones");
 
         bool grouped = (mode == GameMode.CaptureZone || mode == GameMode.Teams)
                        && teamScores is { Length: >= 2 };
@@ -123,25 +131,28 @@ public partial class GameOverScreen : CanvasLayer
                     ? teamScores[team].ToString() : "0";
                 string name = team == 0 ? "Equipe Bleue" : "Equipe Rouge";
                 AddGridCell($"{name} [{score} pts]");
-                for (int i = 0; i < 3; i++) AddGridCell("");
+                int extraCols = showZones ? 4 : 3;
+                for (int i = 0; i < extraCols; i++) AddGridCell("");
                 foreach (var p in leaderboard)
-                    if (p.TeamId == team) AddPlayerRow(p);
+                    if (p.TeamId == team) AddPlayerRow(p, showZones);
             }
         }
         else
         {
             foreach (var p in leaderboard)
-                AddPlayerRow(p);
+                AddPlayerRow(p, showZones);
         }
     }
 
-    private void AddPlayerRow(PlayerInfo p)
+    private void AddPlayerRow(PlayerInfo p, bool showZones)
     {
         float ratio = p.Deaths == 0 ? p.Kills : (float)p.Kills / p.Deaths;
         AddGridCell(p.Nickname);
         AddGridCell(p.Kills.ToString());
+        AddGridCell(p.Assists.ToString());
         AddGridCell(p.Deaths.ToString());
         AddGridCell(ratio.ToString("F1"));
+        if (showZones) AddGridCell(p.ZoneCaptures.ToString());
     }
 
     private void AddGridCell(string text)

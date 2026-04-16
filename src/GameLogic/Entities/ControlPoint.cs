@@ -29,30 +29,37 @@ public class ControlPoint
     public int? Tick(IReadOnlyDictionary<int, TankEntity> tanks, float deltaTime)
     {
         int? teamInZone = GetDominantTeam(tanks);
+        float captureRate = Constants.CaptureRatePerSecond / 100f;
 
         if (teamInZone == null)
-            return ControllingTeamId; // no one capturing, controlling team still scores
+            return ControllingTeamId; // contested or empty — state unchanged
 
-        if (ControllingTeamId == teamInZone)
+        if (teamInZone == _capturingTeamId || _capturingTeamId == null)
         {
-            // Already controlled by this team — full score, no progress change
-            _captureProgress = 1f;
-            return ControllingTeamId;
-        }
+            // Same team continues (or zone was neutral)
+            if (_capturingTeamId == null)
+                _capturingTeamId = teamInZone;
 
-        if (_capturingTeamId != teamInZone)
+            if (ControllingTeamId == teamInZone)
+            {
+                _captureProgress = 1f;
+                return ControllingTeamId;
+            }
+
+            _captureProgress = Math.Min(1f, _captureProgress + captureRate * deltaTime);
+            if (_captureProgress >= 1f)
+                ControllingTeamId = _capturingTeamId;
+        }
+        else
         {
-            // Different team entering — start over from current progress against new team
-            _capturingTeamId = teamInZone;
-            _captureProgress = 0f;
-            ControllingTeamId = null;
+            // Opposing team — push back progress instead of resetting
+            _captureProgress = Math.Max(0f, _captureProgress - captureRate * deltaTime);
+            if (_captureProgress <= 0f)
+            {
+                ControllingTeamId = null;
+                _capturingTeamId = teamInZone; // new team takes over from 0
+            }
         }
-
-        float captureRate = Constants.CaptureRatePerSecond / 100f; // 100% = full capture
-        _captureProgress = Math.Min(1f, _captureProgress + captureRate * deltaTime);
-
-        if (_captureProgress >= 1f)
-            ControllingTeamId = _capturingTeamId;
 
         return ControllingTeamId;
     }

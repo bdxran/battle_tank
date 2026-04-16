@@ -21,6 +21,7 @@
 > Objectif : Une partie complète de BR jouable, du lobby à l'écran de victoire.
 
 - [x] Zone de jeu rétrécissante (safe zone + zone de dégâts)
+- [x] fix: zone invisible hors mode BR + délai d'apparition avant activation en BR
 - [x] Élimination définitive (pas de respawn)
 - [x] Écran de fin de partie (victoire / défaite / classement)
 - [x] Minimap (joueurs visibles, zone safe)

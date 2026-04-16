@@ -105,6 +105,7 @@ public partial class GameRenderer : Node2D
             _tankPrevHealth[snapshot.Id] = snapshot.Health;
         }
 
+        _zoneNode.Visible = state.Mode == GameMode.BattleRoyale;
         SyncBullets(state.Bullets);
         _zoneNode.UpdateFrom(state.Zone);
         _controlPointsNode.UpdateFrom(state.ControlPoints);

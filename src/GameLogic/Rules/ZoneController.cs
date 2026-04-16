@@ -10,18 +10,32 @@ public class ZoneController
 {
     private readonly float _centerX;
     private readonly float _centerY;
+    private readonly float _activationDelay;
     private float _currentRadius;
     private float _timeSinceLastShrink;
+    private float _timeBeforeActivation;
+    private bool _isActive;
 
-    public ZoneController()
+    public ZoneController(float activationDelay = Constants.ZoneActivationDelay)
     {
         _centerX = Constants.MapWidth / 2f;
         _centerY = Constants.MapHeight / 2f;
         _currentRadius = Constants.ZoneInitialRadius;
+        _activationDelay = activationDelay;
+        _timeBeforeActivation = activationDelay;
+        _isActive = activationDelay <= 0f;
     }
 
     public void Tick(float deltaTime, IEnumerable<TankEntity> tanks)
     {
+        if (!_isActive)
+        {
+            _timeBeforeActivation -= deltaTime;
+            if (_timeBeforeActivation <= 0f)
+                _isActive = true;
+            return;
+        }
+
         _timeSinceLastShrink += deltaTime;
 
         if (_timeSinceLastShrink >= Constants.ZoneShrinkInterval && _currentRadius > Constants.ZoneMinRadius)
@@ -45,6 +59,8 @@ public class ZoneController
     {
         _currentRadius = Constants.ZoneInitialRadius;
         _timeSinceLastShrink = 0f;
+        _timeBeforeActivation = _activationDelay;
+        _isActive = _activationDelay <= 0f;
     }
 
     public bool IsInsideZone(Vector2 position)
@@ -55,5 +71,5 @@ public class ZoneController
     }
 
     public ZoneSnapshot GetSnapshot() =>
-        new(_centerX, _centerY, _currentRadius, Constants.ZoneDamagePerSecond);
+        new(_centerX, _centerY, _isActive ? _currentRadius : 0f, Constants.ZoneDamagePerSecond);
 }

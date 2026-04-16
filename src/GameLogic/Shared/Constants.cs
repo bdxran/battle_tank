@@ -9,6 +9,7 @@ public static class Constants
     public const int MinPlayersToStart = 2;
     public const int ServerPort = 4242;
     public const float ZoneShrinkInterval = 30f;
+    public const float ZoneActivationDelay = 15f;  // seconds before zone appears in BR
 
     public const int TankMaxHealth = 100;
     public const float TankMoveSpeed = 100f;    // pixels/second

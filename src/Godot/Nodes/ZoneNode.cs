@@ -13,6 +13,10 @@ public partial class ZoneNode : Node2D
 
     public void UpdateFrom(ZoneSnapshot snapshot)
     {
+        bool visible = snapshot.Radius > 0f;
+        Visible = visible;
+        if (!visible) return;
+
         _center = new Vector2(snapshot.CenterX, snapshot.CenterY);
         _radius = snapshot.Radius;
         QueueRedraw();

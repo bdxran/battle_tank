@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- Invincibilité de 3s (60 ticks) après chaque respawn — tank invulnérable aux balles et à la zone (`TankEntity.TickInvincibility`)
+- Kill assists : tout joueur ayant infligé des dégâts sans tuer reçoit un assist comptabilisé dans le scoreboard
+- CaptureZone : compteur de captures de zones par joueur (attribué aux tanks dans le rayon au moment de la capture)
+- Scoreboard : colonne Assists pour tous les modes, colonne Zones uniquement en CaptureZone (6 colonnes total)
+- `PlayerInfo` : nouveaux champs `Assists` (Key 5) et `ZoneCaptures` (Key 6)
+
+### Fixed
+- Spawn overlap au respawn simultané : le spawn point est désormais calculé au moment du respawn (et non à l'élimination), chaque tank étant remis vivant avant le calcul suivant
 - Spawn safe : DM et CaptureZone choisissent le point de spawn le plus éloigné de tous les ennemis en vie (`SafestSpawnPoint`)
 - CaptureZone : respawn automatique 6s après élimination (comme Deathmatch)
 - IA : les bots en CaptureZone se dirigent vers la zone la plus proche non contrôlée par leur équipe quand aucun ennemi n'est visible

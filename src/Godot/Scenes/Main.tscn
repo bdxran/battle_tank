@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cnds78gdmq6c2"]
 
-[ext_resource type="Script" uid="uid://b1qyu078lbj45" path="res://src/Godot/Nodes/ClientNode.cs" id="1_g3sg4"]
+[ext_resource type="Script" path="res://src/Godot/Nodes/MainDispatcher.cs" id="1_g3sg4"]
 
 [node name="Control" type="Node" unique_id=1438077052]
 script = ExtResource("1_g3sg4")

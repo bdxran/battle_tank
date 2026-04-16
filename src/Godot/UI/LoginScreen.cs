@@ -19,6 +19,8 @@ public partial class LoginScreen : CanvasLayer
     private Button _loginButton = null!;
     private Button _registerButton = null!;
     private Button _trainingButton = null!;
+    private Timer _connectingTimer = null!;
+    private int _dotCount;
 
     public override void _Ready()
     {
@@ -63,17 +65,35 @@ public partial class LoginScreen : CanvasLayer
         _trainingButton.Pressed += OnTrainingPressed;
         vbox.AddChild(_trainingButton);
 
-        _statusLabel = new Label { Text = "Connecting to server…" };
+        _statusLabel = new Label { Text = "" };
         _statusLabel.HorizontalAlignment = HorizontalAlignment.Center;
         vbox.AddChild(_statusLabel);
+
+        _connectingTimer = new Timer { WaitTime = 0.5, Autostart = false };
+        _connectingTimer.Timeout += OnConnectingTick;
+        AddChild(_connectingTimer);
+    }
+
+    public void StartConnecting()
+    {
+        _dotCount = 0;
+        _statusLabel.Text = "Connexion en cours.";
+        _connectingTimer.Start();
+    }
+
+    private void OnConnectingTick()
+    {
+        _dotCount = (_dotCount + 1) % 3;
+        _statusLabel.Text = "Connexion en cours" + new string('.', _dotCount + 1);
     }
 
     public void OnConnected()
     {
+        _connectingTimer.Stop();
         _loginButton.Disabled = false;
         _registerButton.Disabled = false;
         _trainingButton.Disabled = false;
-        _statusLabel.Text = "Connected. Enter credentials.";
+        _statusLabel.Text = "Connecté. Saisissez vos identifiants.";
     }
 
     public void ShowError(string message)

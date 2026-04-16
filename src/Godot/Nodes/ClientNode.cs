@@ -252,7 +252,8 @@ public partial class ClientNode : Node
         _hostSetupScreen.Show();
     }
 
-    private void OnHostConfigured(string gameName, int port, string? roomCode)
+    private void OnHostConfigured(string gameName, int port, string? roomCode,
+        GameLogic.Shared.GameMode mode, int durationSeconds, int scoreToWin)
     {
         _hostSetupScreen.Hide();
 
@@ -262,8 +263,15 @@ public partial class ClientNode : Node
             _serverInfoScreen.SetInfo(ip, p, roomCode);
             _serverInfoScreen.Show();
         };
+        _hostNode.ServerFailed += error =>
+        {
+            _hostNode.QueueFree();
+            _hostNode = null;
+            _hostSetupScreen.ShowError(error);
+            _hostSetupScreen.Show();
+        };
         AddChild(_hostNode);
-        _hostNode.Initialize(gameName, port, roomCode);
+        _hostNode.Initialize(gameName, port, roomCode, mode, durationSeconds, scoreToWin);
     }
 
     private void OnServerInfoPlayRequested()
@@ -409,6 +417,7 @@ public partial class ClientNode : Node
         _gamePhase = GamePhase.Connecting;
 
         _loginScreen.Show();
+        _loginScreen.StartConnecting();
 
         var error = _network.Connect(address, port);
         if (error != Error.Ok)

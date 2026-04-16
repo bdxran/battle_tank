@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- HostSetupScreen : sélection du mode de jeu (BR, Deathmatch, Équipes, CaptureZone) avec paramètres dynamiques (durée pour DM/CZ, score cible pour CZ)
+- DeathmatchRules / CaptureZoneRules : durée configurable via constructeur (`durationSeconds`) ; CaptureZoneRules accepte aussi `scoreToWin`
+- GameRoomNode.Initialize / HostNode.Initialize : acceptent `GameMode`, `durationSeconds`, `scoreToWin` — la bonne règle est instanciée selon le mode choisi
+- LanAnnouncer : diffuse le vrai mode de jeu (`mode.ToString()`) au lieu de "BattleRoyale" en dur
+
+### Fixed
+- LoginScreen : animation "Connexion en cours..." pendant l'établissement de la connexion — les boutons restent désactivés jusqu'à connexion effective, puis le label passe à "Connecté. Saisissez vos identifiants."
+- HostNode : échec silencieux du démarrage serveur remplacé par un event `ServerFailed` → `HostSetupScreen` réaffichée avec le message d'erreur (ex: port déjà occupé)
+- MainDispatcher : `Main.tscn` utilise désormais `MainDispatcher` qui démarre `ServerNode` si `OS.HasFeature("dedicated_server")` ou arg `--server`, sinon `ClientNode` — corrige `just run` et le build serveur GitHub
+- BattleTankDbContext : clés primaires EF Core manquantes sur `PlayerAccount`, `PlayerStats`, `GameRecord` — serveur crashait au démarrage sur `EnsureCreated()`
+
+### Added
 - Invincibilité de 3s (60 ticks) après chaque respawn — tank invulnérable aux balles et à la zone (`TankEntity.TickInvincibility`)
 - Kill assists : tout joueur ayant infligé des dégâts sans tuer reçoit un assist comptabilisé dans le scoreboard
 - CaptureZone : compteur de captures de zones par joueur (attribué aux tanks dans le rayon au moment de la capture)

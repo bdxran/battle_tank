@@ -14,8 +14,14 @@ public class DeathmatchRules : IBattleRules
         new(300, 300), new(700, 700),
     ];
 
+    private readonly int _configuredDurationTicks;
     private int _ticksRemaining;
     private bool _timeUp;
+
+    public DeathmatchRules(int durationSeconds = 180)
+    {
+        _configuredDurationTicks = durationSeconds * Constants.TickRate;
+    }
 
     public GameMode Mode => GameMode.Deathmatch;
     public bool IsFriendlyFireEnabled => true;
@@ -27,7 +33,7 @@ public class DeathmatchRules : IBattleRules
 
     public void Initialize(GameRoomState state)
     {
-        _ticksRemaining = Constants.DeathmatchDurationTicks;
+        _ticksRemaining = _configuredDurationTicks;
         _timeUp = false;
     }
 

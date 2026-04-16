@@ -175,6 +175,10 @@
 
 - [x] ESC n'ouvre pas le menu pause en mode solo (`ClientNode._gamePhase == Solo` ignoré)
 - [x] Délai de ~3s après le GO avant de pouvoir bouger (double countdown : Godot + GameRoom lobby)
+- [x] UX : LoginScreen affiche boutons désactivés sans feedback pendant la connexion → animation "Connexion en cours…"
+- [x] Bug : HostNode.Initialize() échoue silencieusement si le port est occupé → UI bloquée (HostSetupScreen cachée, rien affiché)
+- [x] Bug : Main.tscn pointe sur ClientNode — le build serveur (dedicated_server=true) et `just run` ne démarrent jamais ServerNode → créer un MainDispatcher
+- [x] Feat : HostSetupScreen — sélection du mode de jeu + paramètres (durée DM/CZ, score cible CZ)
 
 ## Phase 10 — Assets & Polish artistique
 

@@ -52,7 +52,10 @@ public partial class GameRoomNode : Node
         IPlayerRepository repository,
         ILeaderboardService leaderboard,
         bool trainingMode = false,
-        int botFillCount = Constants.MaxPlayersPerRoom)
+        int botFillCount = Constants.MaxPlayersPerRoom,
+        GameMode mode = GameMode.BattleRoyale,
+        int durationSeconds = 180,
+        int scoreToWin = 1200)
     {
         _logger = logger;
         _network = network;
@@ -61,9 +64,13 @@ public partial class GameRoomNode : Node
         _isTrainingMode = trainingMode;
         _botFillCount = trainingMode ? Constants.MaxPlayersPerRoom - 1 : botFillCount;
 
-        IBattleRules rules = trainingMode
-            ? new TrainingRules()
-            : new BattleRoyaleRules();
+        IBattleRules rules = trainingMode ? new TrainingRules() : mode switch
+        {
+            GameMode.Deathmatch => new DeathmatchRules(durationSeconds),
+            GameMode.Teams => new TeamsRules(),
+            GameMode.CaptureZone => new CaptureZoneRules(durationSeconds, scoreToWin),
+            _ => new BattleRoyaleRules(),
+        };
         _room = new GameRoom(roomLogger, rules);
 
         _network.PlayerConnected += OnPlayerConnected;

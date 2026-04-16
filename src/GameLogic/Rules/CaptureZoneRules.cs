@@ -22,10 +22,18 @@ public class CaptureZoneRules : IBattleRules
         new(750, 750), // bottom-right
     ];
 
+    private readonly int _configuredDurationTicks;
+    private readonly int _configuredScoreToWin;
     private int _ticksRemaining;
     private bool _gameOver;
     private GameOverResult? _result;
     private int?[] _previousControllingTeam = [];
+
+    public CaptureZoneRules(int durationSeconds = 240, int scoreToWin = 1200)
+    {
+        _configuredDurationTicks = durationSeconds * Constants.TickRate;
+        _configuredScoreToWin = scoreToWin;
+    }
 
     public GameMode Mode => GameMode.CaptureZone;
     public bool IsFriendlyFireEnabled => false;
@@ -37,7 +45,7 @@ public class CaptureZoneRules : IBattleRules
 
     public void Initialize(GameRoomState state)
     {
-        _ticksRemaining = Constants.CaptureZoneDurationTicks;
+        _ticksRemaining = _configuredDurationTicks;
         _gameOver = false;
         _result = null;
 
@@ -103,7 +111,7 @@ public class CaptureZoneRules : IBattleRules
                 int team = scoringTeam.Value;
                 state.TeamScores[team]++;
 
-                if (state.TeamScores[team] >= Constants.CaptureZoneScoreToWin)
+                if (state.TeamScores[team] >= _configuredScoreToWin)
                 {
                     _gameOver = true;
                     _result = BuildResult(scoringTeam.Value, state);

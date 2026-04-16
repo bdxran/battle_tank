@@ -19,13 +19,15 @@ namespace BattleTank.Godot.Nodes;
 public partial class HostNode : Node
 {
     public event Action<string, int>? ServerReady;
+    public event Action<string>? ServerFailed;
 
     private ServerNetworkManager _serverNetwork = null!;
     private GameRoomNode _room = null!;
     private LanAnnouncer _announcer = null!;
     private BattleTankDbContext? _db;
 
-    public void Initialize(string gameName, int port, string? roomCode)
+    public void Initialize(string gameName, int port, string? roomCode,
+        GameMode mode = GameMode.BattleRoyale, int durationSeconds = 180, int scoreToWin = 1200)
     {
         var loggerFactory = NullLoggerFactory.Instance;
 
@@ -49,13 +51,17 @@ public partial class HostNode : Node
             NullLogger<GameRoomNode>.Instance,
             NullLogger<GameRoom>.Instance,
             repository,
-            leaderboard);
+            leaderboard,
+            mode: mode,
+            durationSeconds: durationSeconds,
+            scoreToWin: scoreToWin);
         AddChild(_room);
 
         var error = _serverNetwork.Start(port, Constants.MaxPlayersPerRoom);
         if (error != Error.Ok)
         {
             GD.PrintErr($"[HostNode] Failed to start server on port {port}: {error}");
+            ServerFailed?.Invoke($"Impossible de démarrer le serveur sur le port {port} ({error})");
             return;
         }
 
@@ -66,7 +72,7 @@ public partial class HostNode : Node
         _announcer.Start(new ServerAnnouncement(
             localIp, port, gameName,
             Players: 0,
-            Mode: "BattleRoyale",
+            Mode: mode.ToString(),
             HasCode: !string.IsNullOrEmpty(roomCode),
             AppVersion: Constants.GameVersion));
 

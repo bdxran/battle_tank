@@ -22,11 +22,20 @@ public class BattleTankDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<PlayerAccount>()
+            .HasKey(p => p.AccountId);
+
+        modelBuilder.Entity<PlayerAccount>()
             .HasIndex(p => p.Username)
             .IsUnique();
 
         modelBuilder.Entity<PlayerStats>()
+            .HasKey(p => p.StatsId);
+
+        modelBuilder.Entity<PlayerStats>()
             .HasIndex(p => new { p.AccountId, p.Mode })
             .IsUnique();
+
+        modelBuilder.Entity<GameRecord>()
+            .HasKey(p => p.GameRecordId);
     }
 }

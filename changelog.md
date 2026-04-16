@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `GameRoom.TickZone` — zone tickée une fois par tank vivant au lieu d'une seule fois : dommages et vitesse de rétrécissement multipliés par N (10 tanks = 10×), tuant tous les tanks en ~0.5s en Battle Royale
+- `GameRenderer.Initialize` — nodes Godot (ZoneNode, ControlPointsNode, WallNodes, KillFeedNode, Camera2D) créés à chaque nouvelle partie sans libérer les précédents ; fuite mémoire progressive à chaque relance de partie (tous modes)
+
 - ESC n'ouvrait pas le menu pause en mode solo (`_gamePhase` était `Solo`, pas `InGame`) — condition élargie dans `ClientNode._Process()`
 - Délai de ~3s après le "GO!" avant de pouvoir bouger — lobby countdown interne de `GameRoom` ne s'écoulait pas pendant le décompte Godot ; ajout de `GameRoom.ForceStart()` pour passer directement en `InProgress`
 - Menu pause non centré — ajout d'un `Control` plein écran + `CenterContainer` dans `PauseMenuNode` (même pattern que `CountdownNode`)

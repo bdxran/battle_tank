@@ -316,15 +316,20 @@ public partial class GameRoom
 
     private void TickZone(float deltaTime)
     {
-        foreach (var tank in _tanks.Values)
+        // Snapshot alive state before zone tick to detect kills
+        var wasAlive = new Dictionary<int, bool>(_tanks.Count);
+        foreach (var (id, tank) in _tanks)
+            wasAlive[id] = tank.IsAlive;
+
+        // Tick zone once with all tanks (not once per tank — would multiply deltaTime accumulation)
+        _zone.Tick(deltaTime, _tanks.Values);
+
+        foreach (var (id, tank) in _tanks)
         {
-            if (!tank.IsAlive) continue;
-            bool wasAlive = tank.IsAlive;
-            _zone.Tick(deltaTime, [tank]);
-            if (wasAlive && !tank.IsAlive)
+            if (wasAlive.GetValueOrDefault(id) && !tank.IsAlive)
             {
-                _pendingEliminations.Add(new Elimination(tank.Id, -1));
-                _rules.OnElimination(tank.Id, -1, _currentTick, _state);
+                _pendingEliminations.Add(new Elimination(id, -1));
+                _rules.OnElimination(id, -1, _currentTick, _state);
             }
         }
     }

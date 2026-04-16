@@ -13,6 +13,7 @@ public partial class GameRenderer : Node2D
     private readonly Dictionary<int, TankNode> _tankNodes = new();
     private readonly Dictionary<int, BulletNode> _bulletNodes = new();
     private readonly Dictionary<int, int> _tankPrevHealth = new();
+    private readonly List<WallNode> _wallNodes = new();
 
     private Network.IGameStateProvider _network = null!;
     private HudNode _hud = null!;
@@ -29,6 +30,28 @@ public partial class GameRenderer : Node2D
 
     public void Initialize(Network.IGameStateProvider network, HudNode hud, int localPlayerId)
     {
+        // Unsubscribe from previous provider to avoid duplicate events
+        if (_network is not null)
+        {
+            _network.GameStateFullReceived -= OnGameStateFull;
+            _network.GameStateDeltaReceived -= OnGameStateDelta;
+            _network.PlayerEliminated -= OnPlayerEliminated;
+        }
+
+        // Free nodes from previous game session
+        foreach (var node in _tankNodes.Values) node.QueueFree();
+        _tankNodes.Clear();
+        foreach (var node in _bulletNodes.Values) node.QueueFree();
+        _bulletNodes.Clear();
+        _tankPrevHealth.Clear();
+        foreach (var wall in _wallNodes) wall.QueueFree();
+        _wallNodes.Clear();
+        _zoneNode?.QueueFree();
+        _controlPointsNode?.QueueFree();
+        _killFeed?.QueueFree();
+        _camera?.QueueFree();
+        _spectating = false;
+
         _network = network;
         _hud = hud;
         _localPlayerId = localPlayerId;
@@ -46,6 +69,7 @@ public partial class GameRenderer : Node2D
             var wallNode = new WallNode();
             wallNode.Initialize(wall);
             AddChild(wallNode);
+            _wallNodes.Add(wallNode);
         }
 
         _killFeed = new KillFeedNode();

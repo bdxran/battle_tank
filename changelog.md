@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- CI release : copie explicite de `BattleTank.dll` après `godot --export-release` — l'assembly C# manquait dans les archives Linux/Windows, causant "No loader found for MainDispatcher.cs" au lancement des binaires exportés
+
 ### Added
 
 - `Godot/UI/PauseMenuNode.cs` — menu pause (CanvasLayer centré) avec boutons "Reprendre" et "Quitter", caché par défaut

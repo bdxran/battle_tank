@@ -87,6 +87,14 @@ jobs:
           godot --headless --path "$GITHUB_WORKSPACE" --export-release "${{ matrix.preset }}" \
             "$GITHUB_WORKSPACE/dist/${{ matrix.artifact }}/${{ matrix.output }}"
 
+      - name: Copy C# managed assemblies
+        run: |
+          # Godot 4 C# export places BattleTank.dll alongside the binary — ensure it's present
+          if [ ! -f "dist/${{ matrix.artifact }}/BattleTank.dll" ]; then
+            find .godot/mono/temp/bin -name "BattleTank.dll" | sort -r | head -1 | xargs -I{} cp {} dist/${{ matrix.artifact }}/
+          fi
+          ls -la dist/${{ matrix.artifact }}/
+
       - name: Add setup doc to server package
         if: matrix.artifact == 'server-linux'
         run: cp docs/server-setup.md dist/${{ matrix.artifact }}/SETUP.md

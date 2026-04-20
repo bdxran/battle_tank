@@ -248,6 +248,12 @@
 
 ---
 
+## CI / Infra
+
+- [x] **Fix export CI** : copie explicite de `BattleTank.dll` après `godot --export-release` — l'assembly C# manquait dans les archives, causant "No loader found for MainDispatcher.cs" au lancement
+
+---
+
 ## Backlog froid — Features futures
 
 > Idées identifiées, pas encore planifiées. À rediscuter quand les phases core sont terminées.

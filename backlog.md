@@ -250,7 +250,7 @@
 
 ## CI / Infra
 
-- [x] **Fix export CI** : copie explicite de `BattleTank.dll` après `godot --export-release` — l'assembly C# manquait dans les archives, causant "No loader found for MainDispatcher.cs" au lancement
+- [x] **Fix export CI** : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` après `godot --export-release` — seul `BattleTank.dll` était copié, `BattleTank.GameLogic.dll` et les autres dépendances manquaient, causant "No loader found for MainDispatcher.cs" au lancement
 
 ---
 

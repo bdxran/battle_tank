@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- CI release : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` dans l'archive — seul `BattleTank.dll` était inclus, `BattleTank.GameLogic.dll` et les autres dépendances manquaient, causant "No loader found for MainDispatcher.cs" au démarrage du serveur exporté
+
 ### Added
 - `UserPreferencesRepository` : persistance du dernier nom d'utilisateur dans `preferences.json` (répertoire utilisateur Godot) — le champ username est pré-rempli au lancement
 - `CollisionSystem.ResolveTankTankCollision` : résolution physique des collisions entre tanks (push-back symétrique) — appelé chaque tick dans `GameRoom` après le déplacement des tanks

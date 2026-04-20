@@ -89,9 +89,9 @@ jobs:
 
       - name: Copy C# managed assemblies
         run: |
-          # Godot 4 C# export places BattleTank.dll alongside the binary — ensure it's present
-          if [ ! -f "dist/${{ matrix.artifact }}/BattleTank.dll" ]; then
-            find .godot/mono/temp/bin -name "BattleTank.dll" | sort -r | head -1 | xargs -I{} cp {} dist/${{ matrix.artifact }}/
+          BUILD_DIR=$(find .godot/mono/temp/bin -maxdepth 1 -type d | sort -r | head -1)
+          if [ -n "$BUILD_DIR" ]; then
+            cp "$BUILD_DIR"/*.dll dist/${{ matrix.artifact }}/
           fi
           ls -la dist/${{ matrix.artifact }}/
 

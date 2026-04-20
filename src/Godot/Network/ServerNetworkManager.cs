@@ -22,6 +22,9 @@ public partial class ServerNetworkManager : Node
     public event Action<int, RegisterRequest>? RegisterReceived;
     public event Action<int, GameMode>? LeaderboardRequested;
     public event Action<int, JoinTrainingRequest>? JoinTrainingReceived;
+    public event Action<int, AdminLoginRequest>? AdminLoginReceived;
+    public event Action<int, ServerConfigRequest>? ServerConfigReceived;
+    public event Action<int, ServerStatusRequest>? ServerStatusRequested;
 
     public void Initialize(ILogger<ServerNetworkManager> logger)
     {
@@ -172,6 +175,21 @@ public partial class ServerNetworkManager : Node
                 case MessageType.JoinTraining:
                     var joinTraining = GameStateSerializer.Deserialize<JoinTrainingRequest>(message.Payload);
                     JoinTrainingReceived?.Invoke(senderId, joinTraining);
+                    break;
+
+                case MessageType.AdminLoginRequest:
+                    var adminLogin = GameStateSerializer.Deserialize<AdminLoginRequest>(message.Payload);
+                    AdminLoginReceived?.Invoke(senderId, adminLogin);
+                    break;
+
+                case MessageType.ServerConfigRequest:
+                    var serverConfig = GameStateSerializer.Deserialize<ServerConfigRequest>(message.Payload);
+                    ServerConfigReceived?.Invoke(senderId, serverConfig);
+                    break;
+
+                case MessageType.ServerStatusRequest:
+                    var statusReq = GameStateSerializer.Deserialize<ServerStatusRequest>(message.Payload);
+                    ServerStatusRequested?.Invoke(senderId, statusReq);
                     break;
 
                 default:

@@ -87,12 +87,19 @@ public partial class LoginScreen : CanvasLayer
         _statusLabel.Text = "Connexion en cours" + new string('.', _dotCount + 1);
     }
 
-    public void OnConnected()
+    public void SetUsername(string username)
+    {
+        if (!string.IsNullOrEmpty(username))
+            _usernameField.Text = username;
+    }
+
+    public void OnConnected(bool showTraining = true)
     {
         _connectingTimer.Stop();
         _loginButton.Disabled = false;
         _registerButton.Disabled = false;
-        _trainingButton.Disabled = false;
+        _trainingButton.Visible = showTraining;
+        _trainingButton.Disabled = !showTraining;
         _statusLabel.Text = "Connecté. Saisissez vos identifiants.";
     }
 

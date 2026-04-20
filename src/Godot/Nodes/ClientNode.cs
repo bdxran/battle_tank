@@ -4,6 +4,7 @@ using BattleTank.GameLogic.Network;
 using BattleTank.GameLogic.Shared;
 using BattleTank.Godot.CrashReport;
 using BattleTank.Godot.Network;
+using BattleTank.Godot.Persistence;
 using BattleTank.Godot.Renderer;
 using BattleTank.Godot.Settings;
 using BattleTank.Godot.UI;
@@ -16,7 +17,7 @@ namespace BattleTank.Godot.Nodes;
 /// </summary>
 public partial class ClientNode : Node
 {
-    private enum GamePhase { MainMenu, Solo, Connecting, Lobby, InGame, GameOver }
+    private enum GamePhase { MainMenu, Solo, Connecting, Lobby, InGame, GameOver, AdminSetup, ServerBrowse }
 
     [Export] public string ServerAddress { get; set; } = "127.0.0.1";
     [Export] public int ServerPort { get; set; } = Constants.ServerPort;
@@ -34,6 +35,8 @@ public partial class ClientNode : Node
     private HostSetupScreen _hostSetupScreen = null!;
     private ServerInfoScreen _serverInfoScreen = null!;
     private RoomBrowserScreen? _roomBrowserScreen;
+    private ServerAdminScreen _serverAdminScreen = null!;
+    private ServerListScreen _serverListScreen = null!;
     private GameOverScreen _gameOverScreen = null!;
     private LoginScreen _loginScreen = null!;
     private TrainingOverlayNode _trainingOverlay = null!;
@@ -61,6 +64,10 @@ public partial class ClientNode : Node
     private bool _trainingMode;
     private string? _pendingRoomCode;
     private GamePhase _gamePhase = GamePhase.MainMenu;
+    private bool _adminMode;
+    private string _pendingAdminPassword = "";
+    private string _pendingStatusAddress = "";
+    private int _pendingStatusPort;
     private GameLogic.Shared.GameMode _pendingMode;
     private string _pendingNickname = "";
 
@@ -70,11 +77,15 @@ public partial class ClientNode : Node
     private bool _countdownActive;
     private GameLogic.Shared.GameMode _currentMode;
 
+    private UserPreferencesRepository _prefsRepo = null!;
+    private string _pendingUsername = "";
+
     private CrashReporter _crashReporter = null!;
 
     public override void _Ready()
     {
         InputSettings.Load();
+        _prefsRepo = new UserPreferencesRepository();
         _crashReporter = new CrashReporter();
         _crashReporter.Initialize(() => _gamePhase.ToString());
         _crashReporter.PendingReportsFound += OnPendingReportsFound;
@@ -107,6 +118,7 @@ public partial class ClientNode : Node
         _loginScreen.TrainingRequested += OnTrainingRequested;
         AddChild(_loginScreen);
         _loginScreen.Hide();
+        _loginScreen.SetUsername(_prefsRepo.Load().LastUsername);
 
         _trainingOverlay = new TrainingOverlayNode();
         _trainingOverlay.JoinRankedRequested += OnJoinRankedRequested;
@@ -136,9 +148,26 @@ public partial class ClientNode : Node
         _mainMenuScreen = new MainMenuScreen();
         _mainMenuScreen.SoloRequested += OnSoloRequested;
         _mainMenuScreen.HostRequested += OnHostRequested;
+        _mainMenuScreen.ConfigureServerRequested += OnConfigureServerRequested;
         _mainMenuScreen.JoinRequested += OnJoinMenuRequested;
         _mainMenuScreen.SettingsRequested += OnSettingsRequested;
         AddChild(_mainMenuScreen);
+
+        _serverAdminScreen = new ServerAdminScreen();
+        _serverAdminScreen.AdminConnectRequested += OnAdminConnectRequested;
+        _serverAdminScreen.ConfigApplyRequested += OnAdminConfigApplyRequested;
+        _serverAdminScreen.PlayRequested += OnAdminPlayRequested;
+        _serverAdminScreen.DisconnectRequested += OnAdminDisconnectRequested;
+        _serverAdminScreen.BackRequested += OnAdminBack;
+        AddChild(_serverAdminScreen);
+        _serverAdminScreen.Hide();
+
+        _serverListScreen = new ServerListScreen();
+        _serverListScreen.JoinRequested += OnServerListJoin;
+        _serverListScreen.StatusRequested += OnServerListStatusRequested;
+        _serverListScreen.BackRequested += OnServerListBack;
+        AddChild(_serverListScreen);
+        _serverListScreen.Hide();
 
         _keybindingsScreen = new KeybindingsScreen();
         _keybindingsScreen.BackRequested += OnSettingsBack;
@@ -172,6 +201,9 @@ public partial class ClientNode : Node
         _network.LeaderboardResponseReceived += OnLeaderboardResponse;
         _network.GameStateDeltaReceived += OnGameStateDeltaForSpectator;
         _network.GameStateFullReceived += OnGameStateFullReceived;
+        _network.AdminLoginResponseReceived += OnAdminLoginResponseReceived;
+        _network.ServerConfigResponseReceived += OnServerConfigResponseReceived;
+        _network.ServerStatusResponseReceived += OnServerStatusResponseReceived;
 
         _mainMenuScreen.Show();
         _crashReporter.CheckPendingReports();
@@ -208,12 +240,9 @@ public partial class ClientNode : Node
         if (_gamePhase == GamePhase.InGame && !_pauseMenu.Visible
             && _network.IsConnected() && _authenticated && !_eliminated)
         {
-            var flags = ReadInput();
-            if (flags != InputFlags.None)
-            {
-                _inputSequence++;
-                _network.SendInput(new PlayerInput(_localPlayerId, flags, _inputSequence));
-            }
+            var flags = GetWindow().HasFocus() ? ReadInput() : InputFlags.None;
+            _inputSequence++;
+            _network.SendInput(new PlayerInput(_localPlayerId, flags, _inputSequence));
         }
     }
 
@@ -229,6 +258,9 @@ public partial class ClientNode : Node
         _network.LeaderboardResponseReceived -= OnLeaderboardResponse;
         _network.GameStateDeltaReceived -= OnGameStateDeltaForSpectator;
         _network.GameStateFullReceived -= OnGameStateFullReceived;
+        _network.AdminLoginResponseReceived -= OnAdminLoginResponseReceived;
+        _network.ServerConfigResponseReceived -= OnServerConfigResponseReceived;
+        _network.ServerStatusResponseReceived -= OnServerStatusResponseReceived;
         _network.Disconnect();
     }
 
@@ -288,14 +320,107 @@ public partial class ClientNode : Node
         _mainMenuScreen.Show();
     }
 
+    private void OnConfigureServerRequested()
+    {
+        _mainMenuScreen.Hide();
+        _serverAdminScreen.Show();
+        _gamePhase = GamePhase.AdminSetup;
+    }
+
+    private void OnAdminConnectRequested(string address, int port, string password)
+    {
+        _pendingAdminPassword = password;
+        _adminMode = true;
+        var error = _network.Connect(address, port);
+        if (error != Error.Ok)
+        {
+            _adminMode = false;
+            _pendingAdminPassword = "";
+            _serverAdminScreen.OnConnectFailed($"Impossible de se connecter ({error})");
+        }
+    }
+
+    private void OnAdminLoginResponseReceived(AdminLoginResponse response)
+    {
+        _serverAdminScreen.OnAdminLoginResponse(response.Success, response.ErrorMessage);
+        if (!response.Success) _adminMode = false;
+    }
+
+    private void OnAdminConfigApplyRequested(GameLogic.Shared.GameMode mode, int duration, int score, bool ff, string? code, int bots)
+    {
+        _network.SendServerConfig(new ServerConfigRequest(mode, duration, score, ff, code, bots));
+    }
+
+    private void OnServerConfigResponseReceived(ServerConfigResponse response)
+    {
+        _serverAdminScreen.OnConfigApplied(response.Success, response.ErrorMessage);
+    }
+
+    private void OnAdminPlayRequested()
+    {
+        _adminMode = false;
+        _trainingMode = false;
+        _serverAdminScreen.Hide();
+        _gamePhase = GamePhase.Lobby;
+        _renderer.Initialize(_network, _hud, _localPlayerId);
+        _audioManager.Initialize(_network, _renderer);
+        _loginScreen.Show();
+        _loginScreen.OnConnected(showTraining: false);
+    }
+
+    private void OnAdminDisconnectRequested()
+    {
+        _adminMode = false;
+        _network.Disconnect();
+        _gamePhase = GamePhase.MainMenu;
+    }
+
+    private void OnAdminBack()
+    {
+        _adminMode = false;
+        _pendingAdminPassword = "";
+        if (_network.IsConnected()) _network.Disconnect();
+        _serverAdminScreen.Hide();
+        _mainMenuScreen.Show();
+        _gamePhase = GamePhase.MainMenu;
+    }
+
     private void OnJoinMenuRequested()
     {
         _mainMenuScreen.Hide();
-        _roomBrowserScreen = new RoomBrowserScreen();
-        _roomBrowserScreen.JoinRequested += OnRoomBrowserJoin;
-        _roomBrowserScreen.BackRequested += OnRoomBrowserBack;
-        AddChild(_roomBrowserScreen);
+        _serverListScreen.Show();
+        _gamePhase = GamePhase.ServerBrowse;
     }
+
+    private void OnServerListStatusRequested(string address, int port)
+    {
+        _pendingStatusAddress = address;
+        _pendingStatusPort = port;
+        if (_network.IsConnected()) _network.Disconnect();
+        _network.Connect(address, port);
+    }
+
+    private void OnServerStatusResponseReceived(ServerStatusResponse response)
+    {
+        _serverListScreen.ShowStatus(response);
+        // Disconnect after getting status — user will reconnect on Join
+        _network.Disconnect();
+    }
+
+    private void OnServerListJoin(string address, int port, string? roomCode)
+    {
+        _serverListScreen.Hide();
+        StartRemoteConnection(address, port, roomCode);
+    }
+
+    private void OnServerListBack()
+    {
+        if (_network.IsConnected()) _network.Disconnect();
+        _serverListScreen.Hide();
+        _mainMenuScreen.Show();
+        _gamePhase = GamePhase.MainMenu;
+    }
+
 
     private void OnSettingsRequested()
     {
@@ -429,8 +554,22 @@ public partial class ClientNode : Node
     private void OnConnected()
     {
         _localPlayerId = Multiplayer.GetUniqueId();
-        _gamePhase = GamePhase.Lobby;
         GD.Print($"[ClientNode] Connected as peer {_localPlayerId}");
+
+        if (_adminMode)
+        {
+            _network.SendAdminLogin(new AdminLoginRequest(_pendingAdminPassword));
+            _pendingAdminPassword = "";
+            return;
+        }
+
+        if (_gamePhase == GamePhase.ServerBrowse)
+        {
+            _network.SendServerStatusRequest();
+            return;
+        }
+
+        _gamePhase = GamePhase.Lobby;
         _renderer.Initialize(_network, _hud, _localPlayerId);
         _audioManager.Initialize(_network, _renderer);
         _loginScreen.OnConnected();
@@ -457,6 +596,14 @@ public partial class ClientNode : Node
         _currentMode = state.Mode;
         _lastLeaderboard = state.Players ?? [];
         _lastTeamScores = state.TeamScores ?? [];
+
+        if (_gamePhase == GamePhase.InGame && !_countdownActive
+            && state.Phase == GameLogic.Shared.GamePhase.Lobby
+            && state.CountdownSecondsRemaining > 0)
+        {
+            _countdownActive = true;
+            _countdown.StartCountdown(state.CountdownSecondsRemaining);
+        }
 
         if (!_trainingMode || _authenticated) return;
 
@@ -505,20 +652,33 @@ public partial class ClientNode : Node
         _pauseMenu.Hide();
         _hud.Hide();
         _renderer.Hide();
+        _spectatorOverlay.Hide();
+        _scoreboard.Hide();
 
         if (_localGameNode != null)
         {
             _localGameNode.QueueFree();
             _localGameNode = null;
+            _gamePhase = GamePhase.MainMenu;
+            _soloModeScreen.Show();
         }
-
-        _gamePhase = GamePhase.MainMenu;
-        _soloModeScreen.Show();
+        else
+        {
+            _network.Disconnect();
+            _authenticated = false;
+            _eliminated = false;
+            _spectating = false;
+            _trainingMode = false;
+            _loginScreen.Hide();
+            _gamePhase = GamePhase.MainMenu;
+            _mainMenuScreen.Show();
+        }
     }
 
     private void OnLoginRequested(string username, string password)
     {
         if (!_network.IsConnected()) return;
+        _pendingUsername = username;
         _network.SendLogin(new LoginRequest(username, password, _pendingRoomCode));
     }
 
@@ -541,6 +701,10 @@ public partial class ClientNode : Node
         _authenticated = true;
         _gamePhase = GamePhase.InGame;
         _loginScreen.Hide();
+        _hud.Show();
+        _renderer.Show();
+        if (!string.IsNullOrEmpty(_pendingUsername))
+            _prefsRepo.Save(new UserPreferences(_pendingUsername));
         GD.Print($"[ClientNode] Authenticated as {_nickname} (accountId: {_accountId})");
     }
 
@@ -557,11 +721,31 @@ public partial class ClientNode : Node
 
     private void OnGameStateDeltaForSpectator(GameStateDelta delta)
     {
-        if (!_spectating) return;
-        int aliveCount = 0;
+        if (_eliminated && !_spectating)
+            return;
+
+        if (_eliminated && _spectating)
+        {
+            int aliveCount = 0;
+            foreach (var tank in delta.Tanks)
+            {
+                if (tank.Health > 0) aliveCount++;
+                if (tank.Id == _localPlayerId && tank.Health > 0)
+                {
+                    _eliminated = false;
+                    _spectating = false;
+                    _renderer.ExitSpectatorMode();
+                    _spectatorOverlay.Hide();
+                }
+            }
+            _spectatorOverlay.UpdateAliveCount(aliveCount);
+            return;
+        }
+
+        int alive = 0;
         foreach (var tank in delta.Tanks)
-            if (tank.Health > 0) aliveCount++;
-        _spectatorOverlay.UpdateAliveCount(aliveCount);
+            if (tank.Health > 0) alive++;
+        _spectatorOverlay.UpdateAliveCount(alive);
     }
 
     private void OnPlayerEliminated(PlayerEliminatedMessage msg)

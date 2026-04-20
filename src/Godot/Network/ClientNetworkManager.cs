@@ -22,6 +22,9 @@ public partial class ClientNetworkManager : Node, IGameStateProvider
     public event Action<LoginResponse>? LoginResponseReceived;
     public event Action<RegisterResponse>? RegisterResponseReceived;
     public event Action<LeaderboardResponse>? LeaderboardResponseReceived;
+    public event Action<AdminLoginResponse>? AdminLoginResponseReceived;
+    public event Action<ServerConfigResponse>? ServerConfigResponseReceived;
+    public event Action<ServerStatusResponse>? ServerStatusResponseReceived;
 
     public void Initialize(ILogger<ClientNetworkManager> logger)
     {
@@ -82,6 +85,24 @@ public partial class ClientNetworkManager : Node, IGameStateProvider
     public void RequestLeaderboard(GameMode mode)
     {
         var payload = BuildPayload(MessageType.LeaderboardRequest, [(byte)mode]);
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
+    public void SendAdminLogin(AdminLoginRequest request)
+    {
+        var payload = BuildPayload(MessageType.AdminLoginRequest, GameStateSerializer.Serialize(request));
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
+    public void SendServerConfig(ServerConfigRequest request)
+    {
+        var payload = BuildPayload(MessageType.ServerConfigRequest, GameStateSerializer.Serialize(request));
+        RpcId(1, MethodName.ReceiveReliableMessage, payload);
+    }
+
+    public void SendServerStatusRequest()
+    {
+        var payload = BuildPayload(MessageType.ServerStatusRequest, GameStateSerializer.Serialize(new ServerStatusRequest()));
         RpcId(1, MethodName.ReceiveReliableMessage, payload);
     }
 
@@ -171,6 +192,21 @@ public partial class ClientNetworkManager : Node, IGameStateProvider
                 case MessageType.LeaderboardResponse:
                     var lbResp = GameStateSerializer.Deserialize<LeaderboardResponse>(message.Payload);
                     LeaderboardResponseReceived?.Invoke(lbResp);
+                    break;
+
+                case MessageType.AdminLoginResponse:
+                    var adminResp = GameStateSerializer.Deserialize<AdminLoginResponse>(message.Payload);
+                    AdminLoginResponseReceived?.Invoke(adminResp);
+                    break;
+
+                case MessageType.ServerConfigResponse:
+                    var cfgResp = GameStateSerializer.Deserialize<ServerConfigResponse>(message.Payload);
+                    ServerConfigResponseReceived?.Invoke(cfgResp);
+                    break;
+
+                case MessageType.ServerStatusResponse:
+                    var statusResp = GameStateSerializer.Deserialize<ServerStatusResponse>(message.Payload);
+                    ServerStatusResponseReceived?.Invoke(statusResp);
                     break;
 
                 default:

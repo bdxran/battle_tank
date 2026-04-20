@@ -10,6 +10,7 @@ public partial class MainMenuScreen : CanvasLayer
 {
     public event Action? SoloRequested;
     public event Action? HostRequested;
+    public event Action? ConfigureServerRequested;
     public event Action? JoinRequested;
     public event Action? SettingsRequested;
 
@@ -42,6 +43,10 @@ public partial class MainMenuScreen : CanvasLayer
         var host = new Button { Text = "Héberger une partie" };
         host.Pressed += () => HostRequested?.Invoke();
         vbox.AddChild(host);
+
+        var configServer = new Button { Text = "Configurer serveur dédié" };
+        configServer.Pressed += () => ConfigureServerRequested?.Invoke();
+        vbox.AddChild(configServer);
 
         var join = new Button { Text = "Rejoindre une partie" };
         join.Pressed += () => JoinRequested?.Invoke();

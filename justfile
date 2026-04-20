@@ -22,6 +22,10 @@ dev:
 run:
     godot --headless -- --server
 
+# Lancer le serveur avec un mot de passe admin (ex: just run-admin admin)
+run-admin password='':
+    godot --headless -- --server --admin-password={{ password }}
+
 # Exécuter les tests NUnit
 test:
     dotnet test src/Tests/BattleTank.Tests.csproj

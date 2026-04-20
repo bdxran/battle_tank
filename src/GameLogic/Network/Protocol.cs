@@ -21,6 +21,12 @@ public enum MessageType : byte
     LeaderboardRequest = 0x44,
     LeaderboardResponse = 0x45,
     JoinTraining = 0x50,
+    AdminLoginRequest = 0x60,
+    AdminLoginResponse = 0x61,
+    ServerConfigRequest = 0x62,
+    ServerConfigResponse = 0x63,
+    ServerStatusRequest = 0x64,
+    ServerStatusResponse = 0x65,
     Error = 0xFF,
 }
 
@@ -153,4 +159,47 @@ public record LeaderboardResponse(
 public record JoinTrainingRequest(
     [property: Key(0)] string Nickname,
     [property: Key(1)] string? RoomCode = null
+);
+
+[MessagePackObject]
+public record AdminLoginRequest(
+    [property: Key(0)] string AdminPassword
+);
+
+[MessagePackObject]
+public record AdminLoginResponse(
+    [property: Key(0)] bool Success,
+    [property: Key(1)] string ErrorMessage = ""
+);
+
+[MessagePackObject]
+public record ServerConfigRequest(
+    [property: Key(0)] GameMode Mode,
+    [property: Key(1)] int DurationSeconds,
+    [property: Key(2)] int ScoreToWin,
+    [property: Key(3)] bool FriendlyFire,
+    [property: Key(4)] string? RoomCode = null,
+    [property: Key(5)] int BotFillCount = 0
+);
+
+[MessagePackObject]
+public record ServerConfigResponse(
+    [property: Key(0)] bool Success,
+    [property: Key(1)] string ErrorMessage = ""
+);
+
+[MessagePackObject]
+public record ServerStatusRequest();
+
+[MessagePackObject]
+public record ServerStatusResponse(
+    [property: Key(0)] GameLogic.Shared.GameMode Mode,
+    [property: Key(1)] GameLogic.Shared.GamePhase Phase,
+    [property: Key(2)] int DurationSeconds,
+    [property: Key(3)] int ScoreToWin,
+    [property: Key(4)] bool FriendlyFire,
+    [property: Key(5)] int PlayerCount,
+    [property: Key(6)] string[] Players,
+    [property: Key(7)] bool HasCode,
+    [property: Key(8)] string ServerName
 );

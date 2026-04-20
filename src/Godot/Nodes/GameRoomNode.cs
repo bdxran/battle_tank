@@ -31,6 +31,13 @@ public partial class GameRoomNode : Node
     // Whether the current room is a training session (no auth, no stats, bot fill)
     private bool _isTrainingMode;
 
+    // Configuration courante (utilisée pour Reconfigure et ServerStatusResponse)
+    private GameMode _currentMode = GameMode.BattleRoyale;
+    private int _currentDurationSeconds = 180;
+    private int _currentScoreToWin = 1200;
+    private bool _currentFriendlyFire;
+    private ILogger<GameRoom> _roomLogger = null!;
+
     // How many bots to fill when lobby countdown ends (0 = no fill)
     private int _botFillCount = Constants.MaxPlayersPerRoom;
     private bool _botsFilled;
@@ -58,11 +65,15 @@ public partial class GameRoomNode : Node
         int scoreToWin = 1200)
     {
         _logger = logger;
+        _roomLogger = roomLogger;
         _network = network;
         _repository = repository;
         _leaderboard = leaderboard;
         _isTrainingMode = trainingMode;
         _botFillCount = trainingMode ? Constants.MaxPlayersPerRoom - 1 : botFillCount;
+        _currentMode = mode;
+        _currentDurationSeconds = durationSeconds;
+        _currentScoreToWin = scoreToWin;
 
         IBattleRules rules = trainingMode ? new TrainingRules() : mode switch
         {
@@ -80,6 +91,45 @@ public partial class GameRoomNode : Node
         _network.RegisterReceived += OnRegisterReceived;
         _network.LeaderboardRequested += OnLeaderboardRequested;
         _network.JoinTrainingReceived += OnJoinTrainingReceived;
+    }
+
+    /// <summary>
+    /// Reconfigure la salle avec un nouveau mode et de nouvelles règles.
+    /// Uniquement possible quand aucune partie n'est en cours.
+    /// </summary>
+    public bool Reconfigure(GameMode mode, int durationSeconds, int scoreToWin, bool friendlyFire, string? roomCode, int botFillCount = 0)
+    {
+        if (_room.Phase == GamePhase.InProgress)
+            return false;
+
+        _currentMode = mode;
+        _currentDurationSeconds = durationSeconds;
+        _currentScoreToWin = scoreToWin;
+        _currentFriendlyFire = friendlyFire;
+        _botFillCount = botFillCount;
+        RoomCode = roomCode;
+
+        IBattleRules rules = mode switch
+        {
+            GameMode.Deathmatch => new DeathmatchRules(durationSeconds),
+            GameMode.Teams => new TeamsRules(),
+            GameMode.CaptureZone => new CaptureZoneRules(durationSeconds, scoreToWin),
+            _ => new BattleRoyaleRules(),
+        };
+        _room = new GameRoom(_roomLogger, rules);
+        _pendingAuth.Clear();
+        _authenticated.Clear();
+        _authAttempts.Clear();
+        _botsFilled = false;
+
+        _logger.LogInformation("Room reconfigured: mode={Mode} duration={Duration}s score={Score} friendlyFire={FF} bots={Bots}", mode, durationSeconds, scoreToWin, friendlyFire, botFillCount);
+        return true;
+    }
+
+    public (GameMode Mode, GamePhase Phase, int DurationSeconds, int ScoreToWin, bool FriendlyFire, string[] Nicknames) GetStatus()
+    {
+        var nicknames = new System.Collections.Generic.List<string>(_room.PlayerNicknames.Values);
+        return (_currentMode, _room.Phase, _currentDurationSeconds, _currentScoreToWin, _currentFriendlyFire, nicknames.ToArray());
     }
 
     public override void _Process(double delta)
@@ -307,6 +357,13 @@ public partial class GameRoomNode : Node
         }
 
         _room.SetPlayerAccountId(peerId, accountId);
+
+        // Fill bots on first human join so they count toward MinPlayersToStart
+        if (!_botsFilled && _botFillCount > 0)
+        {
+            _botsFilled = true;
+            FillBotsIfNeeded();
+        }
 
         var fullState = _room.GetFullState();
         _network.SendToPlayer(peerId, new NetworkMessage(

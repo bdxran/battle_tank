@@ -260,6 +260,13 @@ public partial class GameRoom
             }
         }
 
+        var aliveTanks = new System.Collections.Generic.List<TankEntity>(_tanks.Values.Count);
+        foreach (var t in _tanks.Values)
+            if (t.IsAlive) aliveTanks.Add(t);
+        for (int i = 0; i < aliveTanks.Count; i++)
+            for (int j = i + 1; j < aliveTanks.Count; j++)
+                CollisionSystem.ResolveTankTankCollision(aliveTanks[i], aliveTanks[j]);
+
         try { TickBullets(deltaTime); }
         catch (Exception ex) { _logger.LogError(ex, "Unhandled exception in TickBullets — skipping"); }
 
@@ -359,6 +366,8 @@ public partial class GameRoom
             {
                 var spawnPos = _rules.GetSpawnPoint(playerId, _state);
                 tank.Respawn(spawnPos, _currentTick);
+                if (_playerSessions.TryGetValue(playerId, out var session))
+                    session.InputBuffer = InputFlags.None;
                 _logger.LogInformation("Player {PlayerId} respawned at {SpawnPos}", playerId, spawnPos);
             }
         }

@@ -229,6 +229,25 @@
 
 ---
 
+## Phase 12 — Serveur dédié piloté + liste de serveurs
+
+> Objectif : L'admin pilote le serveur dédié depuis le client, les joueurs gèrent une liste de serveurs favoris.
+
+**Admin serveur dédié :**
+- [x] Protocole : messages `AdminLoginRequest/Response`, `ServerConfigRequest/Response`, `ServerStatusRequest/Response`
+- [x] `ServerNode` : lire `admin_password` depuis args/env, tracker `_adminPeerId`
+- [x] `ServerNetworkManager` : handlers `AdminLoginReceived`, `ServerConfigReceived`, `ServerStatusRequested`
+- [x] `GameRoomNode.Reconfigure()` : reconfiguration à chaud (mode, durée, score, friendly fire, code)
+- [x] UI `ServerAdminScreen` : connexion admin → panneau config → appliquer → jouer
+- [x] Menu principal : bouton "Configurer serveur" (dédié)
+
+**Liste de serveurs joueurs :**
+- [x] `SavedServerRepository` : JSON local dans `user_data/servers.json`
+- [x] UI `ServerListScreen` : liste sauvegardée, statut, ajout/suppression, détail + rejoindre
+- [x] `ClientNetworkManager` : `SendAdminLogin`, `SendServerConfig`, `SendServerStatusRequest` + events réponses
+
+---
+
 ## Backlog froid — Features futures
 
 > Idées identifiées, pas encore planifiées. À rediscuter quand les phases core sont terminées.

@@ -30,10 +30,10 @@ public partial class CountdownNode : CanvasLayer
         Hide();
     }
 
-    public void StartCountdown()
+    public void StartCountdown(int seconds = 3)
     {
         Show();
-        RunStep(3);
+        RunStep(seconds);
     }
 
     private void RunStep(int count)

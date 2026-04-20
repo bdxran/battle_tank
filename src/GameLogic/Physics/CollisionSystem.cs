@@ -40,6 +40,22 @@ public static class CollisionSystem
         return dist < Constants.TankRadius * 2f;
     }
 
+    public static bool ResolveTankTankCollision(TankEntity a, TankEntity b)
+    {
+        float dist = Vector2.Distance(a.Position, b.Position);
+        float minDist = Constants.TankRadius * 2f;
+        if (dist >= minDist || dist < 0.001f) return false;
+
+        var normal = (b.Position - a.Position) / dist;
+        float overlap = minDist - dist;
+        a.SetPosition(a.Position - normal * (overlap / 2f));
+        b.SetPosition(b.Position + normal * (overlap / 2f));
+
+        ClampTankToMap(a);
+        ClampTankToMap(b);
+        return true;
+    }
+
     /// <summary>
     /// Pushes the tank out of a wall if overlapping. Returns true if a collision occurred.
     /// </summary>

@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- `UserPreferencesRepository` : persistance du dernier nom d'utilisateur dans `preferences.json` (répertoire utilisateur Godot) — le champ username est pré-rempli au lancement
+- `CollisionSystem.ResolveTankTankCollision` : résolution physique des collisions entre tanks (push-back symétrique) — appelé chaque tick dans `GameRoom` après le déplacement des tanks
+- `CountdownNode.StartCountdown(int seconds)` : le décompte accepte maintenant un nombre de secondes en paramètre (défaut 3)
+- `ClientNode` : le décompte de démarrage est maintenant affiché pour les clients en mode multijoueur (déclenché sur `GameStateFull` avec `Phase == Lobby`)
+
+### Fixed
+- `ClientNode` : en mode serveur, les touches restaient bloquées — le client n'envoyait jamais `flags=None` ; désormais l'input est envoyé chaque frame, et `InputFlags.None` est forcé quand la fenêtre perd le focus (`GetWindow().HasFocus()`)
+- `GameRoom` : après un respawn, le tank héritait du dernier `InputBuffer` (directions + tir) avant la mort — `InputBuffer` est maintenant remis à `None` au moment du respawn
+- `ClientNode` + `GameRenderer` : après un respawn en mode réseau, `_eliminated` restait `true` côté client — le client détecte maintenant le respawn via le `GameStateDelta` (tank local `Health > 0`) et réactive l'envoi d'input ; `GameRenderer.ExitSpectatorMode()` ajouté
+
+
+- Serveur dédié : la partie ne démarrait jamais avec 1 seul humain — les bots sont maintenant ajoutés dès l'authentification du premier joueur (et non après `InProgress`) pour déclencher la transition `WaitingForPlayers → Lobby`
+- `GameRoomNode.Reconfigure()` : `_botFillCount` n'était pas mis à jour par la reconfiguration admin — désormais passé via `ServerConfigRequest.BotFillCount`
+- `ServerAdminScreen` : ajout d'un champ "Bots (0 = aucun)" dans le panneau de configuration admin pour contrôler le remplissage par IA
+
+### Added
+- `ServerConfigRequest` : nouveau champ `BotFillCount` (Key 5) pour configurer le nombre de bots à remplir depuis l'écran admin
+
+### Fixed
+- `ServerNode` : lecture des arguments via `OS.GetCmdlineUserArgs()` (et non `GetCmdlineArgs()`) — `--admin-password` était ignoré, le mot de passe attendu restait vide
+- `ServerNode` : serveur dédié ne remplit plus les slots avec des bots (`botFillCount: 0`) — l'affichage "mode entraînement" avec bots disparaît
+- `ClientNode.OnQuitRequested()` : retourne au menu principal (`_mainMenuScreen`) en session réseau distante, et à `_soloModeScreen` uniquement en solo local — précédemment bloquait sur `_soloModeScreen` dans tous les cas
+- `ClientNode.OnLoginResponse()` : appelle `_hud.Show()` et `_renderer.Show()` après authentification en jeu réseau — le HUD restait caché (masqué au démarrage) pour toutes les sessions réseau, donnant une apparence "mode entraînement"
+- `ClientNode.OnAdminPlayRequested()` + `LoginScreen.OnConnected()` : le bouton "Mode Entraînement" est masqué quand on joue depuis le flow admin dédié (`showTraining: false`) — évite que `_trainingMode=true` déclenche l'overlay entraînement lors du login qui suit
+
+### Added
+- **Phase 12 — Serveur dédié piloté** : un admin peut se connecter au serveur dédié avec un mot de passe et configurer le mode de jeu à distance
+  - `Protocol.cs` : 6 nouveaux messages (`AdminLoginRequest/Response`, `ServerConfigRequest/Response`, `ServerStatusRequest/Response`)
+  - `ServerNode` : lit `--admin-password` / `ADMIN_PASSWORD` et `--server-name` / `SERVER_NAME` au démarrage ; gère l'authentification admin et la reconfiguration de la room
+  - `GameRoomNode.Reconfigure()` : reconfigure mode/durée/score/friendly-fire/code à chaud (uniquement hors partie en cours)
+  - `ServerAdminScreen` : écran de connexion admin → panneau de config → "Jouer sur ce serveur"
+  - `MainMenuScreen` : nouveau bouton "Configurer serveur dédié"
+- **Phase 12 — Liste de serveurs** : les joueurs maintiennent une liste de serveurs favoris avec aperçu du statut avant de rejoindre
+  - `SavedServerRepository` : persistance JSON dans `user_data/servers.json`
+  - `ServerListScreen` : liste sauvegardée avec statut live, ajout/suppression, fiche de détail (mode, règles, joueurs) et bouton Rejoindre
+  - "Rejoindre une partie" pointe désormais vers `ServerListScreen` au lieu de `RoomBrowserScreen`
+- `ClientNetworkManager` : méthodes `SendAdminLogin`, `SendServerConfig`, `SendServerStatusRequest` + events `AdminLoginResponseReceived`, `ServerConfigResponseReceived`, `ServerStatusResponseReceived`
+- `ServerNetworkManager` : events `AdminLoginReceived`, `ServerConfigReceived`, `ServerStatusRequested`
+
+### Added
 - HostSetupScreen : sélection du mode de jeu (BR, Deathmatch, Équipes, CaptureZone) avec paramètres dynamiques (durée pour DM/CZ, score cible pour CZ)
 - DeathmatchRules / CaptureZoneRules : durée configurable via constructeur (`durationSeconds`) ; CaptureZoneRules accepte aussi `scoreToWin`
 - GameRoomNode.Initialize / HostNode.Initialize : acceptent `GameMode`, `durationSeconds`, `scoreToWin` — la bonne règle est instanciée selon le mode choisi

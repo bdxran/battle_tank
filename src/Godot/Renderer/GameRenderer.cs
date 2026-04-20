@@ -106,6 +106,11 @@ public partial class GameRenderer : Node2D
         _camera.Enabled = true;
     }
 
+    public void ExitSpectatorMode()
+    {
+        _spectating = false;
+    }
+
     public override void _ExitTree()
     {
         if (_network is null) return;

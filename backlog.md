@@ -257,6 +257,48 @@
 
 ---
 
+## Phase 13 — Installation client & données utilisateur dans Documents
+
+> Objectif : Installer le jeu comme un vrai logiciel (pas un simple zip à extraire) et stocker les préférences dans le dossier Documents standard du système.
+
+**Données utilisateur dans Documents :**
+- [ ] `AppPaths` helper centralisé (`src/Godot/Settings/AppPaths.cs`) — résout les chemins cross-platform via `OS.GetSystemDir(Documents)`
+- [ ] Migrer `InputSettings` → `AppPaths.SettingsPath` (au lieu de `user://settings.cfg`)
+- [ ] Migrer `BattleTankDbContext` → `AppPaths.DatabasePath` (au lieu de `battle_tank.db` relatif)
+- [ ] Migrer `CrashReporter` → `AppPaths.CrashReportsDir` (au lieu de `user://crash_reports`)
+- [ ] `MainDispatcher._Ready()` appelle `AppPaths.EnsureDirectoriesExist()` en premier
+
+**Installer Windows (Inno Setup) :**
+- [ ] Script `installer/windows/setup.iss` : wizard d'installation, télécharge depuis GitHub Releases `randy/battle_tank`, crée raccourcis Bureau + Menu Démarrer, uninstaller propre
+- [ ] Étape CI dans `release.yml` : build `BattleTank-Setup.exe` et l'ajouter aux assets de la release GitHub
+
+**Installer Linux :**
+- [ ] Script `scripts/install-linux.sh` : télécharge la dernière release depuis l'API GitHub, installe dans `~/.local/share/games/battle-tank/`, crée symlink + fichier `.desktop`
+
+**Justfile :**
+- [x] Recette `install-linux` : `bash scripts/install-linux.sh {{archive}}`
+- [x] Recette `build-installer-windows` : `iscc installer/windows/setup.iss`
+
+**Données utilisateur dans Documents :**
+- [x] `AppPaths` helper centralisé
+- [x] Migrer `InputSettings`, `BattleTankDbContext`, `CrashReporter`
+- [x] `MainDispatcher._Ready()` appelle `AppPaths.EnsureDirectoriesExist()`
+
+**Installer Windows / Linux :**
+- [x] `installer/windows/setup.iss`
+- [x] `scripts/install-linux.sh`
+- [x] CI `release.yml` : job `installer-windows`
+
+**Auto-updater :**
+- [x] `UpdateChecker` : vérifie GitHub API au démarrage, compare avec `Constants.GameVersion`
+- [x] `UpdateLauncher` : télécharge + lance le setup Windows en `/VERYSILENT`, ou exécute `update.sh` sur Linux
+- [x] `UpdateBannerNode` : bandeau UI dans `MainMenuScreen` (version dispo, bouton Mettre à jour)
+- [x] `scripts/update-linux.sh` : copié dans `$INSTALL_DIR` à l'installation
+- [x] `install-linux.sh` : copie `update.sh` dans le dossier d'install
+- [x] `setup.iss` : section `[InstallDelete]` pour nettoyage propre avant mise à jour
+
+---
+
 ## Backlog froid — Features futures
 
 > Idées identifiées, pas encore planifiées. À rediscuter quand les phases core sont terminées.

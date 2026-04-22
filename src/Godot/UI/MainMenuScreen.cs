@@ -1,5 +1,6 @@
 using System;
 using Godot;
+using BattleTank.Godot.Settings;
 
 namespace BattleTank.Godot.UI;
 
@@ -59,5 +60,19 @@ public partial class MainMenuScreen : CanvasLayer
         var quit = new Button { Text = "Quitter" };
         quit.Pressed += () => GetTree().Quit();
         vbox.AddChild(quit);
+
+        CheckForUpdateAsync();
+    }
+
+    private async void CheckForUpdateAsync()
+    {
+        var banner = new UpdateBannerNode();
+        AddChild(banner);
+
+        var checker = new UpdateChecker();
+        checker.UpdateAvailable += (version, htmlUrl, assetUrl) =>
+            banner.Show(version, htmlUrl, assetUrl);
+
+        await checker.CheckAsync();
     }
 }

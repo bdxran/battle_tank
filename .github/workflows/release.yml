@@ -133,9 +133,38 @@ jobs:
           name: ${{ matrix.artifact }}
           path: ${{ matrix.archive }}
 
+  installer-windows:
+    name: Windows Installer (Inno Setup)
+    needs: export
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Inno Setup + IDP plugin
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $idpUrl = "https://github.com/ivankuznetsov/InnoDownloadPlugin/releases/latest/download/idp.zip"
+          $idpDir = "C:\Program Files (x86)\Inno Setup 6\Languages"
+          Invoke-WebRequest $idpUrl -OutFile "$env:TEMP\idp.zip"
+          Expand-Archive "$env:TEMP\idp.zip" -DestinationPath "$env:TEMP\idp" -Force
+          Copy-Item "$env:TEMP\idp\*" "C:\Program Files (x86)\Inno Setup 6\" -Recurse -Force
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}" -replace '^v', ''
+          & "C:\Program Files (x86)\Inno Setup 6\iscc.exe" /DAppVersion=$version installer/windows/setup.iss
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-windows
+          path: Output/BattleTank-Setup.exe
+
   release:
     name: Create GitHub Release
-    needs: export
+    needs: [export, installer-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -172,21 +201,50 @@ jobs:
 
             ${{ steps.changelog.outputs.NOTES }}
 
+            ## Installation
+
+            ### Windows
+            1. Télécharger **`BattleTank-Setup.exe`**
+            2. Lancer l'installeur et suivre l'assistant
+            3. Le jeu s'installe dans `%LOCALAPPDATA%\BattleTank\`
+            4. Un raccourci est créé sur le Bureau et dans le Menu Démarrer
+
+            ### Linux
+            ```bash
+            # Installation automatique (télécharge cette release)
+            curl -sSL https://raw.githubusercontent.com/randy/battle_tank/master/scripts/install-linux.sh | bash
+
+            # Ou depuis l'archive téléchargée manuellement
+            bash install-linux.sh client-linux.tar.gz
+            ```
+            Le jeu s'installe dans `~/.local/share/games/battle-tank/` et est accessible via la commande `battle-tank`.
+
+            > Les préférences, keybindings et données de jeu sont sauvegardés dans `~/Documents/BattleTank/`.
+
             ## Téléchargements
 
-            | Plateforme | Fichier |
-            |------------|---------|
-            | Serveur Linux | `server-linux.tar.gz` |
-            | Client Linux | `client-linux.tar.gz` |
-            | Client Windows | `client-windows.zip` |
+            | Plateforme | Fichier | Notes |
+            |------------|---------|-------|
+            | Windows | `BattleTank-Setup.exe` | Installeur recommandé |
+            | Windows (zip) | `client-windows.zip` | Archive brute |
+            | Linux | `client-linux.tar.gz` | Via script `install-linux.sh` |
+            | Serveur Linux | `server-linux.tar.gz` | Serveur dédié headless |
 
-            ### Lancer une partie locale
-            1. Télécharger `server-linux.tar.gz` et votre client
-            2. Démarrer le serveur : `./server.x86_64 --headless -- --server`
-            3. Lancer le client et entrer l'adresse IP du serveur
+            ## Héberger une partie
+
+            ```bash
+            # Linux — démarrer un serveur dédié
+            tar -xzf server-linux.tar.gz
+            ./server.x86_64 --headless -- --server
+
+            # Avec mot de passe admin
+            ./server.x86_64 --headless -- --server --admin-password=monmotdepasse
+            ```
+            Les autres joueurs entrent l'adresse IP du serveur dans le client pour rejoindre.
           files: |
             artifacts/server-linux/server-linux.tar.gz
             artifacts/client-linux/client-linux.tar.gz
             artifacts/client-windows/client-windows.zip
+            artifacts/installer-windows/BattleTank-Setup.exe
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}

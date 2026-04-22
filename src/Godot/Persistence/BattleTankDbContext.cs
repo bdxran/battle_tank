@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using BattleTank.GameLogic.Persistence.Models;
+using BattleTank.Godot.Settings;
 
 namespace BattleTank.Godot.Persistence;
 
@@ -7,9 +8,9 @@ public class BattleTankDbContext : DbContext
 {
     private readonly string _dbPath;
 
-    public BattleTankDbContext(string dbPath = "battle_tank.db")
+    public BattleTankDbContext(string? dbPath = null)
     {
-        _dbPath = dbPath;
+        _dbPath = dbPath ?? AppPaths.DatabasePath;
     }
 
     public DbSet<PlayerAccount> PlayerAccounts { get; set; } = null!;

@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `AppPaths` : helper centralisé (`src/Godot/Settings/AppPaths.cs`) résolvant les chemins utilisateur cross-platform via `OS.GetSystemDir(Documents)` — les données du jeu sont maintenant stockées dans `~/Documents/BattleTank/` (Windows : `Documents\BattleTank\`, Linux/macOS : `~/Documents/BattleTank/`)
+- `scripts/install-linux.sh` : script d'installation Linux — télécharge automatiquement la dernière release depuis GitHub, installe dans `~/.local/share/games/battle-tank/`, crée un symlink dans `~/.local/bin/` et un fichier `.desktop` pour le menu applicatif
+- `installer/windows/setup.iss` : script Inno Setup pour générer `BattleTank-Setup.exe` — wizard d'installation Windows avec téléchargement depuis GitHub Releases, raccourcis Bureau + Menu Démarrer, uninstaller propre
+- CI `release.yml` : job `installer-windows` qui génère `BattleTank-Setup.exe` et le publie dans les assets GitHub Release
+- `UpdateChecker` : vérifie au démarrage client si une nouvelle version est disponible sur GitHub Releases (timeout 3s, silencieux en cas d'échec réseau)
+- `UpdateBannerNode` : bandeau discret affiché dans le menu principal quand une mise à jour est disponible
+- `UpdateLauncher` : télécharge et lance `BattleTank-Setup.exe` en `/VERYSILENT` sur Windows, exécute `update.sh` sur Linux
+- `scripts/update-linux.sh` : script de mise à jour Linux installé dans `~/.local/share/games/battle-tank/update.sh`
+- `installer/windows/setup.iss` : section `[InstallDelete]` pour nettoyer les anciens `.dll`, `.pck` et `.exe` avant une mise à jour
+
+### Changed
+- `InputSettings` : keybindings stockés dans `~/Documents/BattleTank/settings.cfg` au lieu de `user://settings.cfg` (chemin Godot interne)
+- `BattleTankDbContext` : base de données SQLite dans `~/Documents/BattleTank/battle_tank.db` au lieu d'un chemin relatif
+- `CrashReporter` : rapports de crash dans `~/Documents/BattleTank/crash_reports/` au lieu de `user://crash_reports/`
+- `MainDispatcher._Ready()` : appelle `AppPaths.EnsureDirectoriesExist()` en premier pour garantir l'existence du dossier de données
+
 ### Fixed
 - CI release : ajout d'une étape `godot --import` avant l'export pour initialiser le cache `.godot/` — sans cette étape, Godot exportait un PCK vide causant "No loader found for MainDispatcher.cs"
 - CI release : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` dans l'archive — seul `BattleTank.dll` était inclus, `BattleTank.GameLogic.dll` et les autres dépendances manquaient, causant "No loader found for MainDispatcher.cs" au démarrage du serveur exporté

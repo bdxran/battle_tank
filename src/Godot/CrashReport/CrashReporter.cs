@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Runtime.InteropServices;
 using Godot;
 using BattleTank.GameLogic.Shared;
+using BattleTank.Godot.Settings;
 
 namespace BattleTank.Godot.CrashReport;
 
@@ -21,8 +21,7 @@ public class CrashReporter
     public void Initialize(Func<string> getGamePhase)
     {
         _getGamePhase = getGamePhase;
-        _reportsDir = Path.Combine(ProjectSettings.GlobalizePath("user://"), "crash_reports");
-        Directory.CreateDirectory(_reportsDir);
+        _reportsDir = AppPaths.CrashReportsDir;
 
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
     }

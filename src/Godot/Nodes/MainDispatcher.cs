@@ -1,4 +1,5 @@
 using Godot;
+using BattleTank.Godot.Settings;
 
 namespace BattleTank.Godot.Nodes;
 
@@ -11,6 +12,8 @@ public partial class MainDispatcher : Node
 {
     public override void _Ready()
     {
+        AppPaths.EnsureDirectoriesExist();
+
         bool isServer = OS.HasFeature("dedicated_server")
             || System.Array.IndexOf(OS.GetCmdlineUserArgs(), "--server") >= 0;
 

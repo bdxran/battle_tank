@@ -84,3 +84,11 @@ docker-logs:
 # Suivre uniquement les métriques
 docker-metrics:
     docker compose -f docker/docker-compose.yml logs -f server | grep '\[metrics\]'
+
+# Installer le client Linux (télécharge depuis GitHub si aucune archive fournie)
+install-linux archive="":
+    bash scripts/install-linux.sh {{ archive }}
+
+# Générer le setup.exe Windows (nécessite Inno Setup + IDP)
+build-installer-windows version="dev":
+    iscc /DAppVersion={{ version }} installer/windows/setup.iss

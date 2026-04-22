@@ -8,7 +8,7 @@ namespace BattleTank.Godot.Settings;
 /// </summary>
 public static class InputSettings
 {
-    private const string ConfigPath = "user://settings.cfg";
+    private static readonly string ConfigPath = AppPaths.SettingsPath;
     private const string Section = "keybindings";
 
     public static readonly (string Action, string Label, Key DefaultKey)[] Actions =

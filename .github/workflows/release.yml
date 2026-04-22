@@ -95,9 +95,11 @@ jobs:
 
       - name: Copy C# managed assemblies
         run: |
-          BUILD_DIR=$(find .godot/mono/temp/bin -maxdepth 1 -type d | sort -r | head -1)
-          if [ -n "$BUILD_DIR" ]; then
-            cp "$BUILD_DIR"/*.dll dist/${{ matrix.artifact }}/
+          DLLS=$(find .godot/mono/temp/bin -name "*.dll" 2>/dev/null)
+          if [ -n "$DLLS" ]; then
+            find .godot/mono/temp/bin -name "*.dll" -exec cp {} dist/${{ matrix.artifact }}/ \;
+          else
+            find . -path "./.godot" -prune -o -name "*.dll" -print | xargs -I{} cp {} dist/${{ matrix.artifact }}/ 2>/dev/null || true
           fi
           ls -la dist/${{ matrix.artifact }}/
 

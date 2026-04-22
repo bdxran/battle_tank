@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.0.23] - 2026-04-22
+
 ### Added
 - `AppPaths` : helper centralisé (`src/Godot/Settings/AppPaths.cs`) résolvant les chemins utilisateur cross-platform via `OS.GetSystemDir(Documents)` — les données du jeu sont maintenant stockées dans `~/Documents/BattleTank/` (Windows : `Documents\BattleTank\`, Linux/macOS : `~/Documents/BattleTank/`)
 - `scripts/install-linux.sh` : script d'installation Linux — télécharge automatiquement la dernière release depuis GitHub, installe dans `~/.local/share/games/battle-tank/`, crée un symlink dans `~/.local/bin/` et un fichier `.desktop` pour le menu applicatif

@@ -31,7 +31,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     container:
-      image: barichello/godot-ci:4.6.2
+      image: barichello/godot-ci:mono-4.6.2
 
     strategy:
       fail-fast: false
@@ -80,6 +80,10 @@ jobs:
 
       - name: Build C# assemblies
         run: dotnet build BattleTank.sln --no-restore
+
+      - name: Import project
+        run: |
+          godot --headless --path "$GITHUB_WORKSPACE" --import || true
 
       - name: Export — ${{ matrix.preset }}
         run: |

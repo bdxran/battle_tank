@@ -16,6 +16,9 @@
 - [x] HUD basique (vie, nombre de joueurs restants)
 - [x] Système de salle (GameRoom) et matchmaking basique
 
+- [x] CI : étape `godot --import` avant l'export pour éviter le PCK vide
+- [x] CI : utiliser l'image Docker `mono-4.6.2` (avec support .NET) au lieu de `4.6.2` — sans ça, les scripts C# ne se chargent pas dans le binaire exporté
+
 ## Phase 2 — Battle Royale Solo (1vsAll)
 
 > Objectif : Une partie complète de BR jouable, du lobby à l'écran de victoire.

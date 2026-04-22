@@ -5,7 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Fixed
+- CI release : ajout d'une étape `godot --import` avant l'export pour initialiser le cache `.godot/` — sans cette étape, Godot exportait un PCK vide causant "No loader found for MainDispatcher.cs"
 - CI release : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` dans l'archive — seul `BattleTank.dll` était inclus, `BattleTank.GameLogic.dll` et les autres dépendances manquaient, causant "No loader found for MainDispatcher.cs" au démarrage du serveur exporté
+- CI release : image Docker changée de `barichello/godot-ci:4.6.2` vers `mono-4.6.2` — l'image standard ne contient pas le support .NET, causant "No loader found for resource: MainDispatcher.cs" à l'exécution du serveur exporté
 
 ### Added
 - `UserPreferencesRepository` : persistance du dernier nom d'utilisateur dans `preferences.json` (répertoire utilisateur Godot) — le champ username est pré-rempli au lancement

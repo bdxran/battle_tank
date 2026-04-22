@@ -7,112 +7,135 @@ All notable changes to this project will be documented in this file.
 ## [0.0.23] - 2026-04-22
 
 ### Added
-- `AppPaths` : helper centralisé (`src/Godot/Settings/AppPaths.cs`) résolvant les chemins utilisateur cross-platform via `OS.GetSystemDir(Documents)` — les données du jeu sont maintenant stockées dans `~/Documents/BattleTank/` (Windows : `Documents\BattleTank\`, Linux/macOS : `~/Documents/BattleTank/`)
-- `scripts/install-linux.sh` : script d'installation Linux — télécharge automatiquement la dernière release depuis GitHub, installe dans `~/.local/share/games/battle-tank/`, crée un symlink dans `~/.local/bin/` et un fichier `.desktop` pour le menu applicatif
-- `installer/windows/setup.iss` : script Inno Setup pour générer `BattleTank-Setup.exe` — wizard d'installation Windows avec téléchargement depuis GitHub Releases, raccourcis Bureau + Menu Démarrer, uninstaller propre
-- CI `release.yml` : job `installer-windows` qui génère `BattleTank-Setup.exe` et le publie dans les assets GitHub Release
-- `UpdateChecker` : vérifie au démarrage client si une nouvelle version est disponible sur GitHub Releases (timeout 3s, silencieux en cas d'échec réseau)
-- `UpdateBannerNode` : bandeau discret affiché dans le menu principal quand une mise à jour est disponible
-- `UpdateLauncher` : télécharge et lance `BattleTank-Setup.exe` en `/VERYSILENT` sur Windows, exécute `update.sh` sur Linux
-- `scripts/update-linux.sh` : script de mise à jour Linux installé dans `~/.local/share/games/battle-tank/update.sh`
-- `installer/windows/setup.iss` : section `[InstallDelete]` pour nettoyer les anciens `.dll`, `.pck` et `.exe` avant une mise à jour
+- `AppPaths` : chemins utilisateur cross-platform dans `~/Documents/BattleTank/` (`settings.cfg`, `battle_tank.db`, `crash_reports/`)
+- `installer/windows/setup.iss` : wizard Inno Setup — télécharge depuis GitHub Releases, raccourcis Bureau + Menu Démarrer, uninstaller, `[InstallDelete]` pour mise à jour propre
+- `scripts/install-linux.sh` : installe dans `~/.local/share/games/battle-tank/`, symlink `~/.local/bin/battle-tank`, fichier `.desktop`
+- `scripts/update-linux.sh` : mise à jour automatique Linux depuis GitHub Releases (copié dans le dossier d'install)
+- `UpdateChecker` : vérifie GitHub Releases au démarrage client (timeout 3s, silencieux si pas de réseau)
+- `UpdateBannerNode` : bandeau en haut du menu principal quand une mise à jour est disponible
+- `UpdateLauncher` : lance `BattleTank-Setup.exe /VERYSILENT` (Windows) ou `update.sh` (Linux)
+- CI `release.yml` : job `installer-windows` — publie `BattleTank-Setup.exe` dans les assets GitHub Release
 
 ### Changed
-- `InputSettings` : keybindings stockés dans `~/Documents/BattleTank/settings.cfg` au lieu de `user://settings.cfg` (chemin Godot interne)
-- `BattleTankDbContext` : base de données SQLite dans `~/Documents/BattleTank/battle_tank.db` au lieu d'un chemin relatif
-- `CrashReporter` : rapports de crash dans `~/Documents/BattleTank/crash_reports/` au lieu de `user://crash_reports/`
-- `MainDispatcher._Ready()` : appelle `AppPaths.EnsureDirectoriesExist()` en premier pour garantir l'existence du dossier de données
+- `InputSettings`, `BattleTankDbContext`, `CrashReporter` : chemins migrés vers `AppPaths` (depuis `user://` et chemins relatifs)
+- `MainDispatcher._Ready()` : appelle `AppPaths.EnsureDirectoriesExist()` avant tout accès à la persistance
+
+## [0.0.22] - 2026-04-20
 
 ### Fixed
-- CI release : ajout d'une étape `godot --import` avant l'export pour initialiser le cache `.godot/` — sans cette étape, Godot exportait un PCK vide causant "No loader found for MainDispatcher.cs"
-- CI release : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` dans l'archive — seul `BattleTank.dll` était inclus, `BattleTank.GameLogic.dll` et les autres dépendances manquaient, causant "No loader found for MainDispatcher.cs" au démarrage du serveur exporté
-- CI release : image Docker changée de `barichello/godot-ci:4.6.2` vers `mono-4.6.2` — l'image standard ne contient pas le support .NET, causant "No loader found for resource: MainDispatcher.cs" à l'exécution du serveur exporté
-- CI release : chemin des templates d'export corrigé vers `4.6.2.stable.mono/` — l'image mono attend ses templates dans ce dossier et non `4.6.2.stable/`
-- CI release : copie des DLLs C# rendue robuste avec `find` récursif — le sous-dossier dans `.godot/mono/temp/bin/` change selon la config et le glob échouait
+- CI : copie des DLLs C# rendue robuste avec `find` récursif — le sous-dossier dans `.godot/mono/temp/bin/` change selon la config
+
+## [0.0.21] - 2026-04-20
+
+### Fixed
+- CI : chemin des templates d'export corrigé vers `4.6.2.stable.mono/`
+
+## [0.0.20] - 2026-04-20
+
+### Fixed
+- CI : image Docker changée vers `mono-4.6.2` — l'image standard ne contient pas le support .NET
+
+## [0.0.19] - 2026-04-19
+
+### Fixed
+- CI : copie de tous les `.dll` depuis `.godot/mono/temp/bin/` dans l'archive — `BattleTank.GameLogic.dll` et dépendances manquaient
+
+## [0.0.18] - 2026-04-19
+
+### Fixed
+- CI : `BattleTank.dll` inclus dans les archives d'export
+
+## [0.0.17] - 2026-04-18
 
 ### Added
-- `UserPreferencesRepository` : persistance du dernier nom d'utilisateur dans `preferences.json` (répertoire utilisateur Godot) — le champ username est pré-rempli au lancement
-- `CollisionSystem.ResolveTankTankCollision` : résolution physique des collisions entre tanks (push-back symétrique) — appelé chaque tick dans `GameRoom` après le déplacement des tanks
-- `CountdownNode.StartCountdown(int seconds)` : le décompte accepte maintenant un nombre de secondes en paramètre (défaut 3)
-- `ClientNode` : le décompte de démarrage est maintenant affiché pour les clients en mode multijoueur (déclenché sur `GameStateFull` avec `Phase == Lobby`)
+- `UserPreferencesRepository` : persistance du dernier nom d'utilisateur — le champ username est pré-rempli au lancement
+- `CollisionSystem.ResolveTankTankCollision` : résolution physique des collisions entre tanks (push-back symétrique)
+- `CountdownNode.StartCountdown(int seconds)` : durée paramétrable
+- `ClientNode` : décompte de démarrage affiché en multijoueur
 
-### Fixed
-- `ClientNode` : en mode serveur, les touches restaient bloquées — le client n'envoyait jamais `flags=None` ; désormais l'input est envoyé chaque frame, et `InputFlags.None` est forcé quand la fenêtre perd le focus (`GetWindow().HasFocus()`)
-- `GameRoom` : après un respawn, le tank héritait du dernier `InputBuffer` (directions + tir) avant la mort — `InputBuffer` est maintenant remis à `None` au moment du respawn
-- `ClientNode` + `GameRenderer` : après un respawn en mode réseau, `_eliminated` restait `true` côté client — le client détecte maintenant le respawn via le `GameStateDelta` (tank local `Health > 0`) et réactive l'envoi d'input ; `GameRenderer.ExitSpectatorMode()` ajouté
-
-
-- Serveur dédié : la partie ne démarrait jamais avec 1 seul humain — les bots sont maintenant ajoutés dès l'authentification du premier joueur (et non après `InProgress`) pour déclencher la transition `WaitingForPlayers → Lobby`
-- `GameRoomNode.Reconfigure()` : `_botFillCount` n'était pas mis à jour par la reconfiguration admin — désormais passé via `ServerConfigRequest.BotFillCount`
-- `ServerAdminScreen` : ajout d'un champ "Bots (0 = aucun)" dans le panneau de configuration admin pour contrôler le remplissage par IA
+## [0.0.16] - 2026-04-17
 
 ### Added
-- `ServerConfigRequest` : nouveau champ `BotFillCount` (Key 5) pour configurer le nombre de bots à remplir depuis l'écran admin
+- `HostSetupScreen` : sélection du mode de jeu + paramètres (durée DM/CZ, score cible CZ)
+- `DeathmatchRules` / `CaptureZoneRules` : durée et score cible configurables via constructeur
 
-### Fixed
-- `ServerNode` : lecture des arguments via `OS.GetCmdlineUserArgs()` (et non `GetCmdlineArgs()`) — `--admin-password` était ignoré, le mot de passe attendu restait vide
-- `ServerNode` : serveur dédié ne remplit plus les slots avec des bots (`botFillCount: 0`) — l'affichage "mode entraînement" avec bots disparaît
-- `ClientNode.OnQuitRequested()` : retourne au menu principal (`_mainMenuScreen`) en session réseau distante, et à `_soloModeScreen` uniquement en solo local — précédemment bloquait sur `_soloModeScreen` dans tous les cas
-- `ClientNode.OnLoginResponse()` : appelle `_hud.Show()` et `_renderer.Show()` après authentification en jeu réseau — le HUD restait caché (masqué au démarrage) pour toutes les sessions réseau, donnant une apparence "mode entraînement"
-- `ClientNode.OnAdminPlayRequested()` + `LoginScreen.OnConnected()` : le bouton "Mode Entraînement" est masqué quand on joue depuis le flow admin dédié (`showTraining: false`) — évite que `_trainingMode=true` déclenche l'overlay entraînement lors du login qui suit
+## [0.0.15] - 2026-04-16
 
 ### Added
-- **Phase 12 — Serveur dédié piloté** : un admin peut se connecter au serveur dédié avec un mot de passe et configurer le mode de jeu à distance
-  - `Protocol.cs` : 6 nouveaux messages (`AdminLoginRequest/Response`, `ServerConfigRequest/Response`, `ServerStatusRequest/Response`)
-  - `ServerNode` : lit `--admin-password` / `ADMIN_PASSWORD` et `--server-name` / `SERVER_NAME` au démarrage ; gère l'authentification admin et la reconfiguration de la room
-  - `GameRoomNode.Reconfigure()` : reconfigure mode/durée/score/friendly-fire/code à chaud (uniquement hors partie en cours)
-  - `ServerAdminScreen` : écran de connexion admin → panneau de config → "Jouer sur ce serveur"
-  - `MainMenuScreen` : nouveau bouton "Configurer serveur dédié"
-- **Phase 12 — Liste de serveurs** : les joueurs maintiennent une liste de serveurs favoris avec aperçu du statut avant de rejoindre
-  - `SavedServerRepository` : persistance JSON dans `user_data/servers.json`
-  - `ServerListScreen` : liste sauvegardée avec statut live, ajout/suppression, fiche de détail (mode, règles, joueurs) et bouton Rejoindre
-  - "Rejoindre une partie" pointe désormais vers `ServerListScreen` au lieu de `RoomBrowserScreen`
-- `ClientNetworkManager` : méthodes `SendAdminLogin`, `SendServerConfig`, `SendServerStatusRequest` + events `AdminLoginResponseReceived`, `ServerConfigResponseReceived`, `ServerStatusResponseReceived`
-- `ServerNetworkManager` : events `AdminLoginReceived`, `ServerConfigReceived`, `ServerStatusRequested`
+- Invincibilité 3s (60 ticks) après chaque respawn
+- Kill assists : comptabilisés dans le scoreboard
+- CaptureZone : compteur de captures de zones par joueur
+- Scoreboard : colonne Assists + colonne Zones (CaptureZone uniquement)
+
+### Fixed
+- Spawn overlap au respawn simultané
+- Spawn safe : point le plus éloigné des ennemis en vie (DM et CZ)
+- CaptureZone : respawn automatique 6s après élimination
+- IA : se dirige vers la zone la plus proche non contrôlée par son équipe
+- HUD : timer MM:SS en DM et CZ, score kills/équipes selon le mode
+- Scoreboard Tab : tableau K/D/ratio affiché pendant la partie
+- Écran de fin : tableau de scores + boutons Rejouer / Menu principal
+- Pause bloquée pendant le décompte — ESC ignoré tant que le countdown est actif
+- Tir allié en CaptureZone corrigé (`IsFriendlyFireEnabled = false`)
+
+## [0.0.14] - 2026-04-15
 
 ### Added
-- HostSetupScreen : sélection du mode de jeu (BR, Deathmatch, Équipes, CaptureZone) avec paramètres dynamiques (durée pour DM/CZ, score cible pour CZ)
-- DeathmatchRules / CaptureZoneRules : durée configurable via constructeur (`durationSeconds`) ; CaptureZoneRules accepte aussi `scoreToWin`
-- GameRoomNode.Initialize / HostNode.Initialize : acceptent `GameMode`, `durationSeconds`, `scoreToWin` — la bonne règle est instanciée selon le mode choisi
-- LanAnnouncer : diffuse le vrai mode de jeu (`mode.ToString()`) au lieu de "BattleRoyale" en dur
+- Phase 12 — Serveur dédié piloté : admin se connecte avec mot de passe, configure le mode à distance
+  - 6 nouveaux messages protocole (`AdminLoginRequest/Response`, `ServerConfigRequest/Response`, `ServerStatusRequest/Response`)
+  - `ServerAdminScreen` : connexion admin → panneau config → "Jouer sur ce serveur"
+- Phase 12 — Liste de serveurs : `SavedServerRepository` (JSON local) + `ServerListScreen`
 
 ### Fixed
-- LoginScreen : animation "Connexion en cours..." pendant l'établissement de la connexion — les boutons restent désactivés jusqu'à connexion effective, puis le label passe à "Connecté. Saisissez vos identifiants."
-- HostNode : échec silencieux du démarrage serveur remplacé par un event `ServerFailed` → `HostSetupScreen` réaffichée avec le message d'erreur (ex: port déjà occupé)
-- MainDispatcher : `Main.tscn` utilise désormais `MainDispatcher` qui démarre `ServerNode` si `OS.HasFeature("dedicated_server")` ou arg `--server`, sinon `ClientNode` — corrige `just run` et le build serveur GitHub
-- BattleTankDbContext : clés primaires EF Core manquantes sur `PlayerAccount`, `PlayerStats`, `GameRecord` — serveur crashait au démarrage sur `EnsureCreated()`
+- Modes Deathmatch et CaptureZone : crash au lancement (`Math.Abs(playerId) % n` pour les IDs bots négatifs)
+- Caméra : suit le char local dans tous les modes
+- IA : ne tire plus à travers les murs (vérification LOS dans `CollisionSystem.HasLineOfSight`)
+- IA : ne cible plus ses alliés en modes équipes
+- Couleurs tanks : joueur local = bleu, alliés = vert, ennemis = rouge
+- Zone BR masquée hors Battle Royale + délai d'activation 15s
+
+## [0.0.13] - 2026-04-14
 
 ### Added
-- Invincibilité de 3s (60 ticks) après chaque respawn — tank invulnérable aux balles et à la zone (`TankEntity.TickInvincibility`)
-- Kill assists : tout joueur ayant infligé des dégâts sans tuer reçoit un assist comptabilisé dans le scoreboard
-- CaptureZone : compteur de captures de zones par joueur (attribué aux tanks dans le rayon au moment de la capture)
-- Scoreboard : colonne Assists pour tous les modes, colonne Zones uniquement en CaptureZone (6 colonnes total)
-- `PlayerInfo` : nouveaux champs `Assists` (Key 5) et `ZoneCaptures` (Key 6)
+- Phase 11 — Solo local et découverte LAN : `LocalGameNode`, `HostNode`, `LanAnnouncer`, `LanDiscovery`, `RoomBrowserScreen`
+- `MainMenuScreen` : Jouer solo / Héberger / Rejoindre
+- Menu pause (Escape)
+- Keybindings configurables
 
 ### Fixed
-- Spawn overlap au respawn simultané : le spawn point est désormais calculé au moment du respawn (et non à l'élimination), chaque tank étant remis vivant avant le calcul suivant
-- Spawn safe : DM et CaptureZone choisissent le point de spawn le plus éloigné de tous les ennemis en vie (`SafestSpawnPoint`)
-- CaptureZone : respawn automatique 6s après élimination (comme Deathmatch)
-- IA : les bots en CaptureZone se dirigent vers la zone la plus proche non contrôlée par leur équipe quand aucun ennemi n'est visible
-- HUD timer : affiche le temps restant (MM:SS) en Deathmatch et CaptureZone
-- HUD score : affiche "Kills: N" en Deathmatch, "Bleu X  -  Rouge Y" en CaptureZone
-- Scoreboard overlay (Tab) : tableau K/D/ratio affiché pendant la partie, groupé par équipe en modes équipes
-- Écran de fin : tableau de scores intégré au-dessus des boutons Rejouer/Menu
-- Suivi des morts (`PlayerDeaths`) dans tous les modes — exposé dans `PlayerInfo`
-- `IBattleRules.TicksRemaining` : propriété exposée sur toutes les règles, envoyée dans `GameStateFull` et `GameStateDelta`
-- `GameStateFull`/`GameStateDelta` : nouveaux champs `TicksRemaining` (Key 10/7) et `TeamScores` (Key 11/8)
+- ESC pause, délai post-countdown, navigation menus
+- Game loop : prévention du death spiral de l'accumulateur
 
-### Fixed
-- Pause bloquée pendant le décompte de démarrage — ESC ignoré tant que le countdown est actif (`_countdownActive`)
-- Tir allié en CaptureZone corrigé — `IsFriendlyFireEnabled` était `true` au lieu de `false`
-- Kills/deaths/ratio des IA non comptabilisés — le check `killerId >= 0` excluait les bots (IDs négatifs) ; remplacé par `ContainsKey` seul dans tous les modes
-- Scoreboard Tab vide en cours de partie — le leaderboard est maintenant rechargé depuis `LocalGameNode` à chaque ouverture du scoreboard
-- Deathmatch/CaptureZone : crash silencieux au lancement corrigé — `GetSpawnPoint` utilisait `playerId % n` qui retourne un index négatif pour les IDs de bots (négatifs), bloquant `Initialize` avant `ForceStart` ; remplacé par `Math.Abs(playerId) % n`
-- Caméra : suit le char du joueur local en temps réel dans tous les modes (Deathmatch, CaptureZone, Teams, BR) — `GameRenderer` active la `Camera2D` dès l'init et met à jour sa position sur chaque delta d'état
-- IA : ne tire plus à travers les murs — vérification LOS (segment vs AABB) dans `CollisionSystem.HasLineOfSight`, utilisé par `SimpleBot` avant de tirer
-- IA : ne cible plus ses alliés en modes équipes — `FindNearestEnemy` ignore les tanks du même `TeamId`
-- Couleurs tanks : joueur local = bleu, alliés = vert, ennemis = rouge dans tous les modes (via `TankNode`, `MinimapNode`, `GameRenderer`)
-- Écran de fin : remplace "Disconnecting..." par deux boutons "Rejouer" / "Menu principal" — "Rejouer" relance la même partie en solo, "Menu" retourne au menu principal
-- Zone BR masquée dans les modes sans Battle Royale (Training, Deathmatch, Teams, CaptureZone) — `ZoneNode` se cache si `GameStateFull.Mode != BattleRoyale`
-- Zone BR invisible au spawn en BR : délai d'activation de 15s avant apparition (`ZoneActivationDelay`) — évite les dégâts immédiats au spawn
-- `ZoneController.GetSnapshot()` retourne `Radius = 0` pendant le délai d'activation pour signaler l'état inactif au client
+## [0.0.12] - 2026-04-10
+
+### Added
+- Phase 9 — IA ennemie : `SimpleBot`, `IBot`, mode entraînement
+- Phase 8 — Crash reporting : rapport structuré, UI de signalement, stockage local
+
+## [0.0.10] - 2026-04-05
+
+### Added
+- Phase 7 — Ops : export Godot multi-plateformes, CI GitHub Actions (tests + release)
+
+## [0.0.9] - 2026-04-01
+
+### Added
+- Phase 4 — Comptes & Progression : authentification, stats persistées (SQLite), leaderboard
+- Phase 5 — Polish : tests NUnit, animations, SFX
+- Phase 6 — Code review fixes
+
+## [0.0.8] - 2026-03-25
+
+### Added
+- Phase 3 — Modes additionnels : Teams, Deathmatch, CaptureZone, powerups, respawn
+
+## [0.0.7] - 2026-03-20
+
+### Added
+- Spectator mode, bullet flash, AudioManager
+
+## [0.0.1-alpha] - 2026-03-01
+
+### Added
+- Phase 1 MVP : game loop 20 TPS, tank, bullets, collisions, ENet réseau
+- Phase 2 Battle Royale : zone rétrécissante, éliminations, minimap
